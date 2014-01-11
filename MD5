@@ -1,0 +1,16 @@
+7e1278ea043f296c52fa0239bb786d78 *DESCRIPTION
+7c21865300f3679c54512b9e2a3b15e1 *NAMESPACE
+4afe52e493037e3fc55eb2e2102ce456 *R/tab-internal.R
+9abf8f206c024de5b6d08e190599c29e *R/tabcox.R
+d188301d834cbb4e574820fbafa1f4b6 *R/tabfreq.R
+9552d6dbf50e55d2708239dc880d22eb *R/tablin.R
+8d037a58a83c9bb915e1b70cef107c4e *R/tablog.R
+90a0b1245d3120b492433179ce8903b9 *R/tabmeans.R
+8a796306e9e73b2a9cc533b6d02d9d70 *data/d.rda
+11db4f47d3dcbdc5ae81300687a5d570 *man/d.Rd
+f402f01361ef32f5019027242d5a7f2b *man/tab-package.Rd
+86d677b62b6a241b4e1b565418abffa4 *man/tabcox.Rd
+e0d0387e56a505f513f8cc1caddec623 *man/tabfreq.Rd
+bf997f3e39b1e844b79742275c0081f7 *man/tablin.Rd
+54a5ff3212b9a74caa134581aba1302e *man/tablog.Rd
+bab2a7fc3bf7e1dc3efb7b59125795eb *man/tabmeans.Rd
