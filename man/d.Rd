@@ -2,14 +2,14 @@
 \alias{d}
 \docType{data}
 \title{
-Example dataset for R package tab. 
+Example dataset for R package tab
 }
 \description{
 This dataset is used to illustrate the various functions in the R package tab.
 }
 \usage{data(d)}
 \format{
-  A data frame with 245 observations on the following 9 variables.
+  A data frame with 300 observations on the following 15 variables.
   \describe{
     \item{\code{id}}{a numeric vector}
     \item{\code{group}}{a numeric vector}
@@ -20,6 +20,12 @@ This dataset is used to illustrate the various functions in the R package tab.
     \item{\code{time}}{a numeric vector}
     \item{\code{delta}}{a numeric vector}
     \item{\code{death_1yr}}{a numeric vector}
+    \item{\code{bp.1}}{a numeric vector}
+    \item{\code{bp.2}}{a numeric vector}
+    \item{\code{bp.3}}{a numeric vector}
+    \item{\code{highbp.1}}{a numeric vector}
+    \item{\code{highbp.2}}{a numeric vector}
+    \item{\code{highbp.3}}{a numeric vector}
   }
 }
 \details{

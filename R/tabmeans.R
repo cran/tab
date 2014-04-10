@@ -1,71 +1,110 @@
-tabmeans <-
-function(x,y,xlevels=NULL,yname="Y variable",decimals=1,n=TRUE,se=FALSE) {
+tabmeans <- function(x, y, latex = FALSE, xlevels = NULL, yname = "Y variable", decimals = 1,
+                     p.decimals = c(2,3), p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
+                     p.avoid1 = FALSE, n = FALSE, se = FALSE) {
+  
+  # If any inputs are not correct class, return error
+  if (!is.logical(latex)) {
+    stop("For latex input, please enter TRUE or FALSE")
+  }
+  if (!is.numeric(decimals)) {
+    stop("For decimals input, please enter numeric value")
+  }
+  if (!is.numeric(p.decimals)) {
+    stop("For p.decimals input, please enter numeric value or vector")
+  }
+  if (!is.numeric(p.cuts)) {  
+    stop("For p.cuts input, please enter numeric value or vector")
+  }
+  if (!is.numeric(p.lowerbound)) {
+    stop("For p.lowerbound input, please enter numeric value")
+  }
+  if (!is.logical(p.leading0)) {
+    stop("For p.leading0 input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(p.avoid1)) {
+    stop("For p.avoid1 input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(n)) {
+    stop("For n input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(se)) {
+    stop("For se input, please enter TRUE or FALSE")
+  }
+  
+  # Drop missing values
+  locs.complete <- which(!is.na(x) & !is.na(y))
+  x <- x[locs.complete]
+  y <- y[locs.complete]
   
   # Convert decimals to variable for sprintf
-  spf = paste("%0.",decimals,"f",sep="")
+  spf <- paste("%0.", decimals, "f", sep = "")
   
   # Get unique values of x
-  xvals = sort(unique(x))
+  xvals <- sort(unique(x))
   
   # If xlevels unspecified, set to actual values
   if (is.null(xlevels)) {
-    xlevels = xvals
+    xlevels <- xvals
   }
   
   # Initialize table
-  tbl = matrix("",nrow=1,ncol=3+length(xlevels))
+  tbl <- matrix("", nrow = 1, ncol = 3+length(xlevels))
   
   # Get means and SD's or SE's and add variable name and 1st cell entry to table
-  means = tapply(X=y,INDEX=x,FUN=mean)
-  ns = tapply(X=y,INDEX=x,FUN=length)
-  if (se==FALSE) {
-    vars = tapply(X=y,INDEX=x,FUN=sd)
-    tbl[1,1] = paste(yname,", M (SD)",sep="")
-    tbl[1,2] = paste(sprintf(spf,mean(y[!is.na(x)]))," (",sprintf(spf,sd(y[!is.na(x)])),")",sep="")
+  means <- tapply(X = y, INDEX = x, FUN = mean)
+  ns <- tapply(X = y, INDEX = x, FUN = length)
+  if (se == FALSE) {
+    vars <- tapply(X = y, INDEX = x, FUN = sd)
+    tbl[1,1] <- paste(yname, ", M (SD)", sep = "")
+    tbl[1,2] <- paste(sprintf(spf, mean(y[!is.na(x)])), " (", sprintf(spf, sd(y[!is.na(x)])), ")", sep = "")
   } else {
-    vars = tapply(X=y,INDEX=x,FUN=function(x) sd(x)/sqrt(length(x)))
-    tbl[1,1] = paste(yname,", M (SE)",sep="")
-    tbl[1,2] = paste(sprintf(spf,mean(y[!is.na(x)]))," (",sprintf(spf,sd(y[!is.na(x)])/sqrt(length(y[!is.na(x)]))),")",sep="")
+    vars <- tapply(X = y, INDEX = x, FUN = function(x) sd(x)/sqrt(length(x)))
+    tbl[1,1] <- paste(yname, ", M (SE)", sep = "")
+    tbl[1,2] <- paste(sprintf(spf, mean(y[!is.na(x)])), " (", sprintf(spf, sd(y[!is.na(x)])/sqrt(length(y[!is.na(x)]))), ")", sep = "")
   }
   
   # Add mean (SD/SE) values to table
-  tbl[1,3:(ncol(tbl)-1)] = paste(sprintf(spf,means)," (",sprintf(spf,vars),")",sep="")
+  tbl[1,3:(ncol(tbl)-1)] <- paste(sprintf(spf, means), " (", sprintf(spf, vars), ")", sep = "")
   
   # Add p-value based on ANOVA or t-test depending on number of levels of x
-  if (length(xlevels)==2) {
+  if (length(xlevels) == 2) {
     
     # F test for equal variances then appropriate t-test
-    f = var.test(x=y[x==xvals[1]],y=y[x==xvals[2]])
-    if (f$p.value<0.05) {
-      p = t.test(x=y[x==xvals[1]],y=y[x==xvals[2]],var.equal=FALSE)$p.value
+    f <- var.test(x = y[x == xvals[1]], y = y[x == xvals[2]])
+    if (f$p.value < 0.05) {
+      p <- t.test(x = y[x == xvals[1]], y = y[x == xvals[2]], var.equal = FALSE)$p.value
     } else {
-      p = t.test(x=y[x==xvals[1]],y=y[x==xvals[2]],var.equal=TRUE)$p.value
+      p <- t.test(x = y[x == xvals[1]], y = y[x == xvals[2]], var.equal = TRUE)$p.value
     }
     
   } else {
     
     # ANOVA
-    p = anova(lm(y~as.factor(x)))$"P"[1]
+    p <- anova(lm(y ~ as.factor(x)))$"P"[1]
     
   }
   
   # Add p-value from t-test
-  if (p<0.001) {
-    tbl[1,ncol(tbl)] = "<0.001"
-  } else {
-    tbl[1,ncol(tbl)] = sprintf("%0.3f",p)
-  }
+  tbl[1,ncol(tbl)] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound, leading0 = p.leading0, avoid1 = p.avoid1)
   
   # If requested, include n's in xlevels labels
-  if (n==TRUE) {
-    xlevels = paste(xlevels," (n = ",tapply(X=y,INDEX=x,FUN=length),")",sep="")
-    overall = paste("Overall (n = ",sum(complete.cases(x) & complete.cases(y)),")",sep="")
+  if (n == TRUE) {
+    xlevels <- paste(xlevels, " (n = ", tapply(X = y, INDEX = x, FUN = length), ")", sep = "")
+    overall <- paste("Overall (n = ", sum(complete.cases(x) & complete.cases(y)), ")", sep = "")
   } else {
-    overall = "Overall"
+    overall <- "Overall"
   }
   
   # Add column names
-  colnames(tbl) = c("Variable",overall,xlevels,"p-value")
+  colnames(tbl) <- c("Variable", overall, xlevels, "P")
+  
+  # If latex is TRUE, do some re-formatting
+  if (latex == TRUE) {
+    plocs = which(substr(tbl[,"P"],1,1) == "<")
+    if (length(plocs) > 0) {
+      tbl[plocs,"P"] = paste("$<$", substring(tbl[plocs,"P"],2), sep = "")
+    }
+  }
   
   # Return table
   return(tbl)
