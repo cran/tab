@@ -23,16 +23,16 @@ Vector of values indicating group membership for rows of IxJ table.
 If TRUE, object returned will be formatted for printing in LaTeX using xtable [1]; if FALSE, it will be formatted for copy-and-pasting from RStudio into a word processor.
 }
   \item{xlevels}{
-Optional character vector to label the levels of x. If unspecified, the function uses generic labels.
+Optional character vector to label the levels of x. If unspecified, the function uses the values that x takes on.
 }
   \item{ylevels}{
-Optional character vector to label the levels of y. If unspecified, the function uses generic labels.
+Optional character vector to label the levels of y. If unspecified, the function uses the values that y takes on.
 }
   \item{yname}{
 Optional label for the y (row) variable.
 }
   \item{test}{
-Controls test of independence between x and y. "chi" for Pearson's chi-squared test, "fisher" for Fisher's exact test.
+Controls test for association between x and y. "chi" for Pearson's chi-squared test, "fisher" for Fisher's exact test, "z" for z test without continuity correction, and "z.continuity" for z test with continuity correction. "z" and "z.continuity" can only be used if x and y are binary.
 }
   \item{decimals}{
 Number of decimal places for percentages.
@@ -77,15 +77,20 @@ Dane R. Van Domelen
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{
+\code{\link{svydesign}}
+\code{\link{svyglm}}
+\code{\link{tabfreq.svy}}
 \code{\link{tabmeans}}
-\code{\link{tabcox}}
+\code{\link{tabmeans.svy}}
 \code{\link{tabglm}}
+\code{\link{tabglm.svy}}
+\code{\link{tabcox}}
 \code{\link{tabgee}}
 }
 \examples{
 # Load in sample dataset d and drop rows with missing values
 data(d)
-d <- d[complete.cases(d),]
+d <- d[complete.cases(d), ]
 
 # Create labels for treatment group, sex, and race
 groups <- c("Control", "Treatment")

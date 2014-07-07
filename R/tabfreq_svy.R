@@ -1,22 +1,16 @@
-tabfreq <- function(x, y, latex = FALSE, xlevels = NULL, ylevels = NULL, yname = "Y variable", 
-                    test = "chi", decimals = 1, p.decimals = c(2, 3), p.cuts = 0.01,
-                    p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n = FALSE, 
-                    compress = FALSE) {
-  
-  # Get cell counts and proportions
-  counts <- table(y, x)
-  props <- 100*prop.table(counts)
-  colprops <- 100*prop.table(counts, 2)
+tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, ylevels = NULL, 
+                        yname = "Y variable", test = "F", decimals = 1, p.decimals = c(2,3), 
+                        p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
+                        p.avoid1 = FALSE, n = FALSE, compress = FALSE) {
   
   # If any inputs are not correct class, return error
   if (!is.logical(latex)) {
     stop("For latex input, please enter TRUE or FALSE")
   }
-  if (! test %in% c("chi", "fisher", "z", "z.continuity")) {
-    stop("For test input, please enter 'chi', 'fisher', 'z', or 'z.continuity'")
-  }
-  if (test %in% c("z", "z.continuity") & ! all(dim(counts) == 2)) {
-    stop("For test input, 'z' and 'z.continuity' can only be used if both x and y are binary")
+  if (! test %in% c("F", "Chisq", "Wald", "adjWald", "lincom", "saddlepoint")) {
+    stop("For test input, please enter a possible value for the 'statistic' input of the 
+         svychisq function in the survey package: 'F', 'Chisq', 'Wald', 'adjWald', 'lincom', 
+         or 'saddlepoint'. See svychisq documentation for details.")
   }
   if (!is.numeric(decimals)) {
     stop("For decimals input, please enter numeric value")
@@ -46,6 +40,28 @@ tabfreq <- function(x, y, latex = FALSE, xlevels = NULL, ylevels = NULL, yname =
   # Convert decimals to variable for sprintf
   spf <- paste("%0.", decimals, "f", sep = "")
   
+  # Save x and y as character strings
+  xstring <- x
+  ystring <- y
+  
+  # Extract vectors x and y
+  x <- svy$variables[, xstring]
+  y <- svy$variables[, ystring]
+  
+  # Update survey object to include y and x explicitly
+  svy2 <- update(svy, y = y, x = x)
+  
+  # Drop missing values if present
+  locs <- which(!is.na(x) & !is.na(y))
+  if (length(locs) < nrow(svy2)) {
+    svy2 <- subset(svy2, !is.na(x) & !is.na(y))
+    x <- svy2$variables[, xstring]
+    y <- svy2$variables[, ystring]
+  }
+  
+  # Basic table to get levels of x and y
+  counts <- table(y, x)
+  
   # If ylevels unspecified, set to actual values
   if (is.null(ylevels)) {
     ylevels <- rownames(counts)
@@ -58,37 +74,29 @@ tabfreq <- function(x, y, latex = FALSE, xlevels = NULL, ylevels = NULL, yname =
   tbl[, 1] <- c(paste(yname, ", n (%)", sep = ""), paste("  ", ylevels, sep = ""))
   
   # Add N column
-  tbl[1, 2] <- sprintf("%.0f", sum(counts))
-  
-  # n (%) in each level of y
-  tbl[2:nrow(tbl), 3] <- paste(sprintf("%.0f", rowSums(counts)), " (", sprintf(spf, rowSums(props)), ")", sep = "")
+  tbl[1, 2] = sprintf("%.0f", sum(counts))
   
   # n (%) for each cell
-  for (i in 1:nrow(counts)) {
-    for (j in 1:ncol(counts)) {
-      tbl[i+1, j+3] <- paste(sprintf("%.0f", counts[i, j]), " (", sprintf(spf, colprops[i, j]), ")", sep = "")
-    }
+  for (ii in 1:nrow(counts)) {
+    yval <- rownames(counts)[ii]
+    totmean <- svymean(y == yval, design = svy2)
+    tbl[ii+1, 3] <- paste(sprintf("%.0f", rowSums(counts)[ii]), " (", sprintf(spf, totmean*100), ")", sep = "")
+    yval <- rownames(counts)[ii]
+    levmeans <- svyby(~y == yval, by = ~x, FUN = svymean, design = svy2)
+    tbl[ii+1, 4:(ncol(tbl)-1)] <- paste(sprintf("%.0f", counts[ii, ]), " (", sprintf(spf, levmeans$"y == yvalTRUE"*100), ")", sep = "")
   }
   
   # Statistical test
   if (nrow(counts) == 1) {
-    pval = "-"
+    pval <- "-"
   } else {
-    if (test == "chi") {
-      pval <- chisq.test(x = x, y = y)$p.value
-    } else if (test == "fisher") {
-      pval <- fisher.test(x = x, y = y)$p.value
-    } else if (test == "z") {
-      pval <- prop.test(x = counts, correct = FALSE)$p.value
-    } else if (test == "z.continuity") {
-      pval <- prop.test(x = counts)$p.value
-    }
+    pval <- svychisq(~y + x, design = svy2, statistic = test)$p.value
   }
   tbl[1, ncol(tbl)] <- formatp(p = pval, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound, leading0 = p.leading0, avoid1 = p.avoid1)
   
   # If y binary and compress is TRUE, compress table to a single row
   if (nrow(counts) <= 2 & compress == TRUE) {
-    tbl <- matrix(c(tbl[1, 1:2], tbl[nrow(tbl), 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
+    tbl <- matrix(c(tbl[1, 1], tbl[nrow(tbl), 2:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
   }
   
   # If xlevels unspecified, set to actual values
@@ -98,6 +106,11 @@ tabfreq <- function(x, y, latex = FALSE, xlevels = NULL, ylevels = NULL, yname =
   
   # Add column names
   colnames(tbl) <- c("Variable", "N", "Overall", xlevels, "P")
+  
+  # If y binary and compress is TRUE, compress table to a single row
+  if (nrow(counts) <= 2 & compress == TRUE) {
+    tbl <- matrix(c(tbl[1, 1:2], tbl[nrow(tbl), 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
+  }
   
   # Drop N column if requested
   if (n == FALSE) {

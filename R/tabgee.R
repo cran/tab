@@ -73,8 +73,8 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   
   # Initialize table
   tbl <- matrix("", nrow = 100, ncol = 8)
-  tbl[1,2] <- length(unique(geefit$id))
-  tbl[1,3] <- sprintf("%0.0f", geefit$nobs)
+  tbl[1, 2] <- length(unique(geefit$id))
+  tbl[1, 3] <- sprintf("%0.0f", geefit$nobs)
   
   # Create index variables for table and gee coefficients
   tabindex <- 1
@@ -82,16 +82,16 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   
   # Enter intercept information if available
   if (xnames[1] == "(Intercept)" & intercept == TRUE) {
-    beta <- coef[1,1]
-    se <- coef[1,secol]
+    beta <- coef[1, 1]
+    se <- coef[1, secol]
     z <- coef[1, zcol]
     p <- pnorm(-abs(z))*2
-    tbl[1,1] <- "Intercept"
-    tbl[1,4] <- paste(sprintf(spf, coef[1,1]), " (", sprintf(spf, se), ")", sep = "")
-    tbl[1,5] <- paste("(", sprintf(spf, beta-1.96*se), ", ",sprintf(spf, beta+1.96*se), ")", sep = "")
-    tbl[1,6:7] <- "-"
-    tbl[1,8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
-                        leading0 = p.leading0, avoid1 = p.avoid1)
+    tbl[1, 1] <- "Intercept"
+    tbl[1, 4] <- paste(sprintf(spf, coef[1, 1]), " (", sprintf(spf, se), ")", sep = "")
+    tbl[1, 5] <- paste("(", sprintf(spf, beta-1.96*se), ", ",sprintf(spf, beta+1.96*se), ")", sep = "")
+    tbl[1, 6:7] <- "-"
+    tbl[1, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
+                         leading0 = p.leading0, avoid1 = p.avoid1)
     tabindex <- tabindex + 1
     coefindex <- coefindex + 1
     
@@ -102,78 +102,78 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   # If there are one or more interaction terms OR basic.form is TRUE, just do basic formatting straight
   # from the table of coefficients
   if ((":" %in% unlist(strsplit(rownames(coef), ""))) | basic.form == TRUE | (sum(model == "factor") > 0 & is.null(data))) {
-    beta <- coef[2:nrow(coef),1]
-    se <- coef[2:nrow(coef),secol]
+    beta <- coef[2:nrow(coef), 1]
+    se <- coef[2:nrow(coef), secol]
     or <- exp(beta)
     z <- coef[tabindex:nrow(coef), zcol]
     p <- pnorm(-abs(z))*2
-    tbl[2:nrow(coef),1] <- rownames(coef)[-1]
-    tbl[2:nrow(coef),4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-    tbl[2:nrow(coef),5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
-    tbl[2:nrow(coef),6] <- sprintf(spf, exp(beta))
-    tbl[2:nrow(coef),7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
-    tbl[tabindex:nrow(coef),8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
-                                          leading0 = p.leading0, avoid1 = p.avoid1)
+    tbl[2:nrow(coef), 1] <- rownames(coef)[-1]
+    tbl[2:nrow(coef), 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
+    tbl[2:nrow(coef), 5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
+    tbl[2:nrow(coef), 6] <- sprintf(spf, exp(beta))
+    tbl[2:nrow(coef), 7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
+    tbl[tabindex:nrow(coef), 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
+                                           leading0 = p.leading0, avoid1 = p.avoid1)
     tabindex <- nrow(coef)+1
   } else {
   
     # Otherwise format factors neatly
     for (ii in 2:(length(model)-1)) {
       if (model[ii] != "factor") {
-        beta <- coef[coefindex,1]
-        se <- coef[coefindex,secol]
+        beta <- coef[coefindex, 1]
+        se <- coef[coefindex, secol]
         or <- exp(beta)
         z <- coef[coefindex, zcol]
         p <- pnorm(-abs(z))*2
-        tbl[tabindex,1] <- names(model)[ii]
-        tbl[tabindex,4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-        tbl[tabindex,5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
-        tbl[tabindex,6] <- sprintf(spf, exp(beta))
-        tbl[tabindex,7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
-        tbl[tabindex,8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
-                                   leading0 = p.leading0, avoid1 = p.avoid1)
+        tbl[tabindex, 1] <- names(model)[ii]
+        tbl[tabindex, 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
+        tbl[tabindex, 5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
+        tbl[tabindex, 6] <- sprintf(spf, exp(beta))
+        tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
+        tbl[tabindex, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
+                                    leading0 = p.leading0, avoid1 = p.avoid1)
         tabindex <- tabindex + 1
         coefindex <- coefindex + 1
         
       } else {
-        levels <- sort(unique(data[,names(model)[ii]]))
+        levels <- sort(unique(data[, names(model)[ii]]))
         if (length(levels) == 2) {
-          beta <- coef[coefindex,1]
-          se <- coef[coefindex,secol]
+          beta <- coef[coefindex, 1]
+          se <- coef[coefindex, secol]
           or <- exp(beta)
           z <- coef[coefindex, zcol]
           p <- pnorm(-abs(z))*2
-          tbl[tabindex,1] <- xnames[coefindex]
-          tbl[tabindex,4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-          tbl[tabindex,5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
-          tbl[tabindex,6] <- sprintf(spf, exp(beta))
-          tbl[tabindex,7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
-          tbl[tabindex,8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
-                                     leading0 = p.leading0, avoid1 = p.avoid1)
+          tbl[tabindex, 1] <- xnames[coefindex]
+          tbl[tabindex, 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
+          tbl[tabindex, 5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
+          tbl[tabindex, 6] <- sprintf(spf, exp(beta))
+          tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
+          tbl[tabindex, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
+                                      leading0 = p.leading0, avoid1 = p.avoid1)
           tabindex <- tabindex + 1
           coefindex <- coefindex + 1
         } else {
           tbl[tabindex, 1] <- names(model)[ii]
           tabindex <- tabindex + 1
-          tbl[tabindex,1] <- paste("  ", levels[1], " (ref)", sep = "")
-          tbl[tabindex,4:8] <- "-"
+          tbl[tabindex, 1] <- paste("  ", levels[1], " (ref)", sep = "")
+          tbl[tabindex, 4:8] <- "-"
           spaces <- c(spaces, tabindex)
           refs <- c(refs, tabindex)
           tabindex <- tabindex + 1
           
           for (jj in 2:length(levels)) {
-            tbl[tabindex,1] <- paste("  ", levels[jj], sep = "")
-            beta <- coef[coefindex,1]
-            se <- coef[coefindex,secol]
+            tbl[tabindex, 1] <- paste("  ", levels[jj], sep = "")
+            beta <- coef[coefindex, 1]
+            se <- coef[coefindex, secol]
             or <- exp(beta)
             z <- coef[coefindex, zcol]
             p <- pnorm(-abs(z))*2
-            tbl[tabindex,4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-            tbl[tabindex,5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
-            tbl[tabindex,6] <- sprintf(spf, exp(beta))
-            tbl[tabindex,7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
-            tbl[tabindex,8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
-                                       leading0 = p.leading0, avoid1 = p.avoid1)
+            tbl[tabindex, 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
+            tbl[tabindex, 5] <- paste("(", sprintf(spf, beta-1.96*se), ", ", sprintf(spf, beta+1.96*se), ")", sep = "")
+            tbl[tabindex, 6] <- sprintf(spf, exp(beta))
+            tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(beta-1.96*se)), ", ", sprintf(spf, exp(beta+1.96*se)), ")", sep = "")
+            tbl[tabindex, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
+                                        leading0 = p.leading0, avoid1 = p.avoid1)
             spaces <- c(spaces, tabindex)
             tabindex <- tabindex + 1
             coefindex <- coefindex + 1
@@ -191,15 +191,15 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   
   # Remove n columns if requested
   if (n.id == FALSE) {
-    tbl <- tbl[,-which(colnames(tbl) == "Clusters"), drop = FALSE]
+    tbl <- tbl[, -which(colnames(tbl) == "Clusters"), drop = FALSE]
   }
   if (n.total == FALSE) {
-    tbl <- tbl[,-which(colnames(tbl) == "Observations"), drop = FALSE]
+    tbl <- tbl[, -which(colnames(tbl) == "Observations"), drop = FALSE]
   }
   
   # If ci.beta is FALSE, remove column
   if (ci.beta == FALSE) {
-    tbl <- tbl[,-which(colnames(tbl) == "95% CI for Beta"), drop = FALSE]
+    tbl <- tbl[, -which(colnames(tbl) == "95% CI for Beta"), drop = FALSE]
   }
   
   # Adjust OR columns if necessary
@@ -207,25 +207,25 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
     colnames(tbl)[colnames(tbl) == "OR"] <- "exp(Beta)"
     colnames(tbl)[colnames(tbl) == "95% CI for OR"] <- "95% CI for exp(Beta)"
   } else if (!(geefit$family$link == "logit" & geefit$family$family %in% c("binomial", "quasi", "quasibibinomial"))) {
-    tbl <- tbl[,-which(colnames(tbl) %in% c("OR", "95% CI for OR")), drop = FALSE]
+    tbl <- tbl[, -which(colnames(tbl) %in% c("OR", "95% CI for OR")), drop = FALSE]
   }
   
   # Add variable labels if possible
   if (!is.null(xlabels)) {
     xlabels[spaces] <- paste("  ", xlabels[spaces], sep = "")
     xlabels[refs] <- paste(xlabels[refs], "(ref)")
-    tbl[1:nrow(tbl),1] <- xlabels
+    tbl[1:nrow(tbl), 1] <- xlabels
   }
   
   # If latex is TRUE, do some re-formatting
   if (latex == TRUE) {
-    plocs = which(substr(tbl[,"P"],1,1) == "<")
+    plocs <- which(substr(tbl[, "P"], 1, 1) == "<")
     if (length(plocs) > 0) {
-      tbl[plocs,"P"] = paste("$<$", substring(tbl[plocs,"P"],2), sep = "")
+      tbl[plocs, "P"] <- paste("$<$", substring(tbl[plocs, "P"], 2), sep = "")
     }
-    spacelocs = which(substr(tbl[,"Variable"],1,2) == "  ")
+    spacelocs <- which(substr(tbl[, "Variable"], 1, 2) == "  ")
     if (length(spacelocs) > 0) {
-      tbl[spacelocs,"Variable"] = paste("\\hskip .3cm ", substring(tbl[spacelocs,"Variable"], 3), sep = "")
+      tbl[spacelocs, "Variable"] <- paste("\\hskip .3cm ", substring(tbl[spacelocs, "Variable"], 3), sep = "")
     }
   }
   

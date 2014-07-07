@@ -80,15 +80,19 @@ A function is currently being developed to create a summary table based on an ob
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{
+\code{\link{coxph}}
 \code{\link{tabfreq}}
+\code{\link{tabfreq.svy}}
 \code{\link{tabmeans}}
+\code{\link{tabmeans.svy}}
 \code{\link{tabglm}}
+\code{\link{tabglm.svy}}
 \code{\link{tabgee}}
 }
 \examples{
 # Load in sample dataset d and drop rows with missing values
 data(d)
-d <- d[complete.cases(d),]
+d <- d[complete.cases(d), ]
 
 # Create labels for race levels
 races <- c("White", "Black", "Mexican American", "Other")

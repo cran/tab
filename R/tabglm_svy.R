@@ -1,14 +1,14 @@
-tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, inference = "wald", 
-                   decimals = 2, p.decimals = c(2, 3), p.cuts = 0.01, p.lowerbound = 0.001, 
-                   p.leading0 = TRUE, p.avoid1 = FALSE, basic.form = FALSE, intercept = TRUE, 
-                   n = FALSE, events = FALSE) {
+tabglm.svy <- function(svyglmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, inference = "wald.t",
+                       decimals = 2, p.decimals = c(2, 3), p.cuts = 0.01, p.lowerbound = 0.001, 
+                       p.leading0 = TRUE, p.avoid1 = FALSE, basic.form = FALSE, intercept = TRUE, 
+                       n = FALSE, events = FALSE) {
   
-  # If glmfit is not correct class, return error
-  if (!all(class(glmfit) == c("glm", "lm"))) {
-    stop("For glmfit input, please enter an object returned from the glm function")
+  # If svyglmfit is not correct class, return error
+  if (!all(class(svyglmfit) == c("svyglm", "glm", "lm"))) {
+    stop("For svyglmfit input, please enter an object returned from the glm function")
   }
   # If any predictors are ordered factors, return error
-  if (any(class(glmfit$model[, -1])[1] == "ordered") & basic.form == FALSE) {
+  if (any(class(svyglmfit$model[, -1])[1] == "ordered") & basic.form == FALSE) {
     stop("tabglm does not work with ordered factors because dummie coding can be unpredictable. 
          Please re-run the glm after converting ordered factors to regular factors")
   }
@@ -19,8 +19,8 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
   if (!is.logical(ci.beta)) {
     stop("For ci.beta input, please enter TRUE or FALSE")
   }
-  if (! inference %in% c("wald", "wald.z", "profile", "profile.z")) {
-    stop("For inference input, please enter 'wald', 'wald.z', 'profile', or 'profile.z'")
+  if (! inference %in% c("wald.t", "wald.z")) {
+    stop("For inference input, please enter 'wald.t' or 'wald.z'")
   }
   if (!is.numeric(decimals)) {
     stop("For decimals input, please enter numeric value")
@@ -57,25 +57,20 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
   spf <- paste("%0.", decimals, "f", sep = "")
   
   # Store glm.fit results
-  coef <- summary(glmfit)$coefficients
+  coef <- summary(svyglmfit)$coefficients
   xnames <- rownames(coef)
-  model <- glmfit$model
+  model <- svyglmfit$model
   
-  # Assign perc variable for constructing confidence intervals
-  if (inference %in% c("wald", "profile")) {
-    if (colnames(summary(glmfit)$coefficients)[3] == "t value") {
-      degfree <- glmfit$df.residual
-      perc <- qt(0.975, degfree)
-    } else {
-      degfree <- Inf
-      perc <- qnorm(0.975)
-    }
-  } else if (inference %in% c("wald.z", "profile.z")) {
-    degfree <- Inf
-    perc <- qnorm(0.975)
-  }
-  if (inference %in% c("profile", "profile.z")) {
-    ci <- confint(glmfit)
+  # Calculate p-values and CI's for all coefficients
+  ci <- matrix(NA, nrow = nrow(coef), ncol = 2)
+  if (inference == "wald.t") {
+    degfree <- svyglmfit$df.residual
+    ci[, 1] <- coef[, 1] + coef[, 2]*qt(0.025, degfree)
+    ci[, 2] <- coef[, 1] - coef[, 2]*qt(0.025, degfree)
+    pvals <- coef[, 4]
+  } else if (inference == "wald.z") {
+    ci <- confint(svyglmfit)
+    pvals <- pnorm(-abs(coef[, 3]))*2
   }
   
   # Initialized vectors for formatting factor variables in table
@@ -95,18 +90,13 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
   if (xnames[1] == "(Intercept)" & intercept == TRUE) {
     beta <- coef[1, 1]
     se <- coef[1, 2]
-    stat <- coef[1, 3]
-    p <- pt(-abs(stat), degfree)*2
+    p <- pvals[1]
     tbl[1, 1] <- "Intercept"
     tbl[1, 4] <- paste(sprintf(spf, coef[1, 1]), " (", sprintf(spf, se), ")", sep = "")
-    if (inference %in% c("wald", "wald.z")) {
-      tbl[1, 5] <- paste("(", sprintf(spf, beta-perc*se), ", ", sprintf(spf, beta+perc*se), ")", sep = "")
-    } else {
-      tbl[1, 5] <- paste("(", sprintf(spf, ci[1, 1]), ", ", sprintf(spf, ci[1, 2]), ")", sep = "")
-    }
+    tbl[1, 5] <- paste("(", sprintf(spf, ci[1, 1]), ", ", sprintf(spf, ci[1, 2]), ")", sep = "")
     tbl[1, 6:7] <- "-"
     tbl[1, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
-                         leading0 = p.leading0, avoid1 = p.avoid1)
+                        leading0 = p.leading0, avoid1 = p.avoid1)
     tabindex <- tabindex + 1
     coefindex <- coefindex + 1
     
@@ -119,43 +109,30 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
   if ((":" %in% unlist(strsplit(rownames(coef), ""))) | basic.form == TRUE) {
     beta <- coef[2:nrow(coef), 1]
     se <- coef[2:nrow(coef), 2]
-    stat <- coef[2:nrow(coef), 3]
     or <- exp(beta)
-    p = pt(-abs(stat), degfree)*2
+    p <- pvals[2:length(pvals)]
     tbl[2:nrow(coef), 1] <- rownames(coef)[-1]
     tbl[2:nrow(coef), 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-    if (inference %in% c("wald", "wald.z")) {
-      tbl[2:nrow(coef), 5] <- paste("(", sprintf(spf, beta-perc*se), ", ", sprintf(spf, beta+perc*se), ")", sep = "")
-      tbl[2:nrow(coef), 7] <- paste("(", sprintf(spf, exp(beta-perc*se)), ", ", sprintf(spf, exp(beta+perc*se)), ")", sep = "")
-    } else {
-      tbl[2:nrow(coef), 5] <- paste("(", sprintf(spf, ci[2:nrow(ci), 1]), ", ", sprintf(spf, ci[2:nrow(ci), 2]))
-      tbl[2:nrow(coef), 7] <- paste("(", sprintf(spf, exp(ci[2:nrow(ci), 1])), ", ", sprintf(spf, exp(ci[2:nrow(ci), 2])), ")", sep = "")
-    }
+    tbl[2:nrow(coef), 5] <- paste("(", sprintf(spf, ci[2:nrow(ci), 1]), ", ", sprintf(spf, ci[2:nrow(ci), 2]), ")", sep = "")
     tbl[2:nrow(coef), 6] <- sprintf(spf, exp(beta))
+    tbl[2:nrow(coef), 7] <- paste("(", sprintf(spf, exp(ci[2:nrow(ci), 1])), ", ", sprintf(spf, exp(ci[2:nrow(ci), 2])), ")", sep = "")
     tbl[2:nrow(coef), 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
                                     leading0 = p.leading0, avoid1 = p.avoid1)
     tabindex <- nrow(coef)+1
-    
   } else {
-  
+    
     # Otherwise format factors neatly
-    for (ii in 2:ncol(model)) {
+    for (ii in 2:(ncol(model)-1)) {
       if (class(model[, ii])[1] != "factor") {
         beta <- coef[coefindex, 1]
         se <- coef[coefindex, 2]
-        stat <- coef[coefindex, 3]
         or <- exp(beta)
-        p <- pt(-abs(stat), degfree)*2
+        p <- pvals[coefindex]
         tbl[tabindex, 1] <- colnames(model)[ii]
         tbl[tabindex, 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-        if (inference %in% c("wald", "wald.z")) {
-          tbl[tabindex, 5] <- paste("(", sprintf(spf, beta-perc*se), ", ", sprintf(spf, beta+perc*se), ")", sep = "")
-          tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(beta-perc*se)), ", ", sprintf(spf, exp(beta+perc*se)), ")", sep = "")
-        } else {
-          tbl[tabindex, 5] <- paste("(", sprintf(spf, ci[coefindex, 1]), ", ", sprintf(spf, ci[coefindex, 2]), ")", sep = "")
-          tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(ci[coefindex, 1])), ", ", sprintf(spf, exp(ci[coefindex, 2])), ")", sep = "")
-        }
+        tbl[tabindex, 5] <- paste("(", sprintf(spf, ci[coefindex, 1]), ", ", sprintf(spf, ci[coefindex, 2]), ")", sep = "")
         tbl[tabindex, 6] <- sprintf(spf, exp(beta))
+        tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(ci[coefindex, 1])), ", ", sprintf(spf, exp(ci[coefindex, 2])), ")", sep = "")
         tbl[tabindex, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
                                     leading0 = p.leading0, avoid1 = p.avoid1)
         tabindex <- tabindex + 1
@@ -166,19 +143,13 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
         if (length(levels) == 2) {
           beta <- coef[coefindex, 1]
           se <- coef[coefindex, 2]
-          stat <- coef[coefindex, 3]
           or <- exp(beta)
-          p <- pt(-abs(stat), degfree)*2
+          p <- pvals[coefindex]
           tbl[tabindex, 1] <- xnames[coefindex]
           tbl[tabindex, 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-          if (inference %in% c("wald", "wald.z")) {
-            tbl[tabindex, 5] <- paste("(", sprintf(spf, beta-perc*se), ", ", sprintf(spf, beta+perc*se), ")", sep = "")
-            tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(beta-perc*se)), ", ", sprintf(spf, exp(beta+perc*se)), ")", sep = "")
-          } else {
-            tbl[tabindex, 5] <- paste("(", sprintf(spf, ci[coefindex, 1]), ", ", sprintf(spf, ci[coefindex, 2]), ")", sep = "")
-            tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(ci[coefindex, 1])), ", ", sprintf(spf, exp(ci[coefindex, 2])), ")", sep = "")
-          }
+          tbl[tabindex, 5] <- paste("(", sprintf(spf, ci[coefindex, 1]), ", ", sprintf(spf, ci[coefindex, 2]), ")", sep = "")
           tbl[tabindex, 6] <- sprintf(spf, exp(beta))
+          tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(ci[coefindex, 1])), ", ", sprintf(spf, exp(ci[coefindex, 2])), ")", sep = "")
           tbl[tabindex, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
                                       leading0 = p.leading0, avoid1 = p.avoid1)
           tabindex <- tabindex + 1
@@ -194,19 +165,13 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
           for (jj in 2:length(levels)) {
             beta <- coef[coefindex, 1]
             se <- coef[coefindex, 2]
-            stat <- coef[coefindex, 3]
             or <- exp(beta)
-            p <- pt(-abs(stat), degfree)*2
+            p <- pvals[coefindex]
             tbl[tabindex, 1] <- paste("  ", levels[jj], sep = "")
             tbl[tabindex, 4] <- paste(sprintf(spf, beta), " (", sprintf(spf, se), ")", sep = "")
-            if (inference %in% c("wald", "wald.z")) {
-              tbl[tabindex, 5] <- paste("(", sprintf(spf, beta-perc*se), ", ", sprintf(spf, beta+perc*se), ")", sep = "")
-              tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(beta-perc*se)), ", ", sprintf(spf, exp(beta+perc*se)), ")", sep = "")
-            } else {
-              tbl[tabindex, 5] <- paste("(", sprintf(spf, ci[coefindex, 1]), ", ", sprintf(spf, ci[coefindex, 2]), ")", sep = "")
-              tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(ci[coefindex, 1])), ", ", sprintf(spf, exp(ci[coefindex, 2])), ")", sep = "")
-            }
+            tbl[tabindex, 5] <- paste("(", sprintf(spf, ci[coefindex, 1]), ", ", sprintf(spf, ci[coefindex, 2]), ")", sep = "")
             tbl[tabindex, 6] <- sprintf(spf, exp(beta))
+            tbl[tabindex, 7] <- paste("(", sprintf(spf, exp(ci[coefindex, 1])), ", ", sprintf(spf, exp(ci[coefindex, 2])), ")", sep = "")
             tbl[tabindex, 8] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound,
                                         leading0 = p.leading0, avoid1 = p.avoid1)
             spaces <- c(spaces, tabindex)
@@ -223,9 +188,9 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
   
   # Add column names
   colnames(tbl) <- c("Variable", "N", "Events", "Beta (SE)", "95% CI for Beta", "OR", "95% CI for OR", "P")
-
+  
   # If not a binary response or events is FALSE, remove events column
-  if (glmfit$family$family != "binomial" | events == FALSE) {
+  if (svyglmfit$family$family != "binomial" | events == FALSE) {
     tbl <- tbl[, -which(colnames(tbl) == "Events"), drop = FALSE]
   }
   
@@ -233,17 +198,17 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
   if (n == FALSE) {
     tbl <- tbl[, -which(colnames(tbl) == "N"), drop = FALSE]
   }
-
+  
   # If ci.beta is FALSE, remove column
   if (ci.beta == FALSE) {
     tbl <- tbl[, -which(colnames(tbl) == "95% CI for Beta"), drop = FALSE]
   }
   
   # Adjust OR columns if necessary
-  if (glmfit$family$link == "log") {
+  if (svyglmfit$family$link == "log") {
     colnames(tbl)[colnames(tbl) == "OR"] <- "exp(Beta)"
     colnames(tbl)[colnames(tbl) == "95% CI for OR"] <- "95% CI for exp(Beta)"
-  } else if (!(glmfit$family$link == "logit" & glmfit$family$family %in% c("binomial", "quasi", "quasibibinomial"))) {
+  } else if (!(svyglmfit$family$link == "logit" & svyglmfit$family$family %in% c("binomial", "quasi", "quasibibinomial"))) {
     tbl <- tbl[, -which(colnames(tbl) %in% c("OR", "95% CI for OR")), drop = FALSE]
   }
   

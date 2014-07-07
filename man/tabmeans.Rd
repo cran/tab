@@ -22,10 +22,10 @@ Vector of values for the continuous variable.
 If TRUE, object returned will be formatted for printing in LaTeX using xtable [1]; if FALSE, it will be formatted for copy-and-pasting from RStudio into a word processor.
 }
   \item{xlevels}{
-Optional character vector to label the levels of x. If unspecified, the function uses generic labels.
+Optional character vector to label the levels of x. If unspecified, the function uses the values that x takes on.
 }
   \item{yname}{
-Optional label for the continuous varaible.
+Optional label for the continuous variable.
 }
   \item{decimals}{
 Number of decimal places for means and standard deviations or standard errors.
@@ -58,7 +58,7 @@ If x has two levels, a t-test is used to test for a difference in means. An F te
 Both x and y can have missing values. The function drops observations with missing x or y. 
 }
 \value{
-A character matrix with the requested frequency table. If you click on the matrix name under "Data" in the RStudio Workspace tab, you will see a clean table that you can copy and paste into a statistical report or manuscript. If latex is set to TRUE, the character matrix will be formatted for inserting into an Sweave or Knitr report using the xtable package [1].
+A character matrix with the requested table comparing mean y across levels of x. If you click on the matrix name under "Data" in the RStudio Workspace tab, you will see a clean table that you can copy and paste into a statistical report or manuscript. If latex is set to TRUE, the character matrix will be formatted for inserting into an Sweave or Knitr report using the xtable package [1].
 }
 \references{
 1. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{http://CRAN.R-project.org/package=xtable}.
@@ -73,14 +73,17 @@ If you have suggestions for additional options or features, or if you would like
 }
 \seealso{
 \code{\link{tabfreq}}
-\code{\link{tabcox}}
+\code{\link{tabfreq.svy}}
+\code{\link{tabmeans.svy}}
 \code{\link{tabglm}}
+\code{\link{tabglm.svy}}
+\code{\link{tabcox}}
 \code{\link{tabgee}}
 }
 \examples{
 # Load in sample dataset d and drop rows with missing values
 data(d)
-d <- d[complete.cases(d),]
+d <- d[complete.cases(d), ]
 
 # Create labels for group and race
 groups <- c("Control", "Treatment")

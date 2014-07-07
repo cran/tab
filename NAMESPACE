@@ -1,3 +1,4 @@
 exportPattern("^[[:alpha:]]+")
+import(survey)
 import(survival)
 import(gee)
