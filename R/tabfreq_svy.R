@@ -1,11 +1,20 @@
-tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, ylevels = NULL, 
-                        yname = "Y variable", test = "F", decimals = 1, p.decimals = c(2,3), 
+tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y variable",
+                        ylevels = NULL, test = "F", decimals = 1, p.decimals = c(2,3), 
                         p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
                         p.avoid1 = FALSE, n = FALSE, compress = FALSE) {
   
   # If any inputs are not correct class, return error
   if (!is.logical(latex)) {
     stop("For latex input, please enter TRUE or FALSE")
+  }
+  if (!is.null(xlevels) && !is.character(xlevels)) {
+    stop("For xlevels input, please enter vector of character strings")
+  }
+  if (!is.character(yname)) {
+    stop("For yname input, please enter character string")
+  }
+  if (!is.null(ylevels) && !is.character(ylevels)) {
+    stop("For ylevels input, please enter vector of character strings")
   }
   if (! test %in% c("F", "Chisq", "Wald", "adjWald", "lincom", "saddlepoint")) {
     stop("For test input, please enter a possible value for the 'statistic' input of the 

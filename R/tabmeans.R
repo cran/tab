@@ -6,6 +6,12 @@ tabmeans <- function(x, y, latex = FALSE, xlevels = NULL, yname = "Y variable", 
   if (!is.logical(latex)) {
     stop("For latex input, please enter TRUE or FALSE")
   }
+  if (!is.null(xlevels) && !is.character(xlevels)) {
+    stop("For xlevels input, please enter vector of character strings.")
+  }
+  if (!is.character(yname)) {
+    stop("For yname input, please enter character string")
+  }
   if (!is.numeric(decimals)) {
     stop("For decimals input, please enter numeric value")
   }
@@ -75,14 +81,17 @@ tabmeans <- function(x, y, latex = FALSE, xlevels = NULL, yname = "Y variable", 
     f <- var.test(x = y[x == xvals[1]], y = y[x == xvals[2]])
     if (f$p.value < 0.05) {
       p <- t.test(x = y[x == xvals[1]], y = y[x == xvals[2]], var.equal = FALSE)$p.value
+      print(paste("Unequal variance t-test was used to compare mean ", yname, " in the two groups.", sep = ""))
     } else {
       p <- t.test(x = y[x == xvals[1]], y = y[x == xvals[2]], var.equal = TRUE)$p.value
+      print(paste("Equal variance t-test was used to compare mean ", yname, " in the two groups.", sep = ""))
     }
     
   } else {
     
     # ANOVA
-    p <- anova(lm(y ~ as.factor(x)))$"P"[1]
+    p <- anova(lm(y ~ as.factor(x)))$"Pr(>F)"[1]
+    print(paste("ANOVA was used to compare means for ", yname, sep = ""))
     
   }
   

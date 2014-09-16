@@ -2,7 +2,7 @@
 \alias{d}
 \docType{data}
 \title{
-Example dataset for R package tab
+Example Dataset for tab Package
 }
 \description{
 This dataset is used to illustrate the various functions in the R package tab.
@@ -35,7 +35,7 @@ NA
 This dataset was generated in R.
 }
 \references{
-NA
+Acknowledgment: This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-0940903.
 }
 \examples{
 NA

@@ -1,14 +1,14 @@
 \name{tabfreq.svy}
 \alias{tabfreq.svy}
 \title{
-Generate frequency tables for statistical reports (survey data)
+Generate Frequency Tables for Statistical Reports (Survey Data)
 }
 \description{
 This function creates an I-by-J frequency table and summarizes the results in a clean table for a statistical report. Similar to tabfreq, but for survey data. Relies heavily on the 'survey' package [1,2].
 }
 \usage{
-tabfreq.svy(x, y, svy, latex = FALSE, xlevels = NULL, ylevels = NULL, 
-            yname = "Y variable", test = "F", decimals = 1, p.decimals = c(2, 3), 
+tabfreq.svy(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y variable", 
+            ylevels = NULL, test = "F", decimals = 1, p.decimals = c(2, 3), 
             p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
             p.avoid1 = FALSE, n = FALSE, compress = FALSE)
 }
@@ -28,11 +28,11 @@ If TRUE, object returned will be formatted for printing in LaTeX using xtable [3
   \item{xlevels}{
 Optional character vector to label the levels of x. If unspecified, the function uses the values that x takes on.
 }
-  \item{ylevels}{
-Optional character vector to label the levels of y. If unspecified, the function uses the values that y takes on.
-}
   \item{yname}{
 Optional label for the y (row) variable.
+}
+  \item{ylevels}{
+Optional character vector to label the levels of y. If unspecified, the function uses the values that y takes on.
 }
   \item{test}{
 Controls test for association between x and y. Must be a possible value for the 'statistic' input of the svychisq function in the survey package [1,2]: 'F', 'Chisq', 'Wald', 'adjWald', 'lincom', or 'saddlepoint'.
@@ -56,7 +56,7 @@ If TRUE, p-values are printed with 0 before decimal place; if FALSE, the leading
 If TRUE, p-values rounded to 1 are not printed as 1, but as >0.99 (or similarly depending on values for p.decimals and p.cuts). 
 }
   \item{n}{
-If TRUE, the table returned will include sample sizes in the column headings. 
+If TRUE, the table will have a column for sample size.
 }
   \item{compress}{
 If y has only two levels, setting compress to TRUE will produce a single row for n (percent) for the higher level. For example, if y is gender with 0 for female, 1 for male, setting compress = TRUE will return a table with n (percent) for males only.
@@ -87,13 +87,15 @@ Currently this function is fairly basic. Future versions should allow for more f
 \code{\link{svydesign}}
 \code{\link{svyglm}}
 \code{\link{svychisq}}
-\code{\link{tabfreq}}
-\code{\link{tabmeans}}
-\code{\link{tabmeans.svy}}
-\code{\link{tabglm}}
-\code{\link{tabglm.svy}}
-\code{\link{tabcox}}
-\code{\link{tabgee}}
+\code{\link{tabfreq}},
+\code{\link{tabmeans}},
+\code{\link{tabmedians}},
+\code{\link{tabmulti}},
+\code{\link{tabglm}},
+\code{\link{tabcox}},
+\code{\link{tabgee}},
+\code{\link{tabmeans.svy}},
+\code{\link{tabglm.svy}},
 }
 \examples{
 NA

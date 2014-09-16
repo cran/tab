@@ -1,10 +1,10 @@
 \name{tabmeans}
 \alias{tabmeans}
 \title{
-Generate summary tables of mean comparisons for statistical reports 
+Generate Summary Tables of Mean Comparisons for Statistical Reports 
 }
 \description{
-This function compares the mean of a continuous variable across levels of a factor variable and summarizes the results in a clean table for a statistical report.
+This function compares the mean of a continuous variable across levels of a categorical variable and summarizes the results in a clean table for a statistical report.
 }
 \usage{
 tabmeans(x, y, latex = FALSE, xlevels = NULL, yname = "Y variable", decimals = 1, 
@@ -13,7 +13,7 @@ tabmeans(x, y, latex = FALSE, xlevels = NULL, yname = "Y variable", decimals = 1
 }
 \arguments{
   \item{x}{
-Vector of values for the factor variable.
+Vector of values for the categorical variable.
 }
   \item{y}{
 Vector of values for the continuous variable.
@@ -46,7 +46,7 @@ If TRUE, p-values are printed with 0 before decimal place; if FALSE, the leading
 If TRUE, p-values rounded to 1 are not printed as 1, but as >0.99 (or similarly depending on values for p.decimals and p.cuts). 
 }
   \item{n}{
-If TRUE, the table returned will include sample sizes in the column headings. 
+If TRUE, the table will have a column for sample size.
 }
   \item{se}{
 If TRUE, the table will present mean (standard error) rather than mean (standard deviation).
@@ -72,13 +72,15 @@ Dane R. Van Domelen
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{
-\code{\link{tabfreq}}
-\code{\link{tabfreq.svy}}
-\code{\link{tabmeans.svy}}
-\code{\link{tabglm}}
-\code{\link{tabglm.svy}}
-\code{\link{tabcox}}
-\code{\link{tabgee}}
+\code{\link{tabfreq}},
+\code{\link{tabmedians}},
+\code{\link{tabmulti}},
+\code{\link{tabglm}},
+\code{\link{tabcox}},
+\code{\link{tabgee}},
+\code{\link{tabfreq.svy}},
+\code{\link{tabmeans.svy}},
+\code{\link{tabglm.svy}},
 }
 \examples{
 # Load in sample dataset d and drop rows with missing values
@@ -98,9 +100,16 @@ meanstable2 <- tabmeans(x = d$race, y = d$bmi, xlevels = races, yname = "BMI", n
 # Create single table comparing mean BMI and mean age in control vs. treatment group
 meanstable3 <- rbind(tabmeans(x = d$group, y = d$bmi, xlevels = groups, yname = "BMI"),
                      tabmeans(x = d$group, y = d$age, xlevels = groups, yname = "Age"))
+                     
+# An easier way to make the above table is to call the tabmulti function
+meanstable4 <- tabmulti(dataset = d, xvarname = "group", yvarnames = c("bmi", "age"),
+                        xlevels = groups, ynames = c("BMI", "Age"))
+                        
+# meanstable3 and meanstable4 are equivalent
+all(meanstable3 == meanstable4)
 
-# Click on meanstable1, meanstable2, and meanstable3 in the Workspace tab of RStudio 
-# to see the tables that could be copied and pasted into a report or manuscript. 
+# Click on meanstable1, meanstable2, meanstable3, or meanstable4 in the Workspace tab of
+# RStudio to see the tables that could be copied and pasted into a report or manuscript. 
 # Alternatively, setting the latex input to TRUE produces tables that can be inserted 
 # into LaTeX using the xtable package.
 }

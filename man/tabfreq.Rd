@@ -1,13 +1,13 @@
 \name{tabfreq}
 \alias{tabfreq}
 \title{
-Generate frequency tables for statistical reports
+Generate Frequency Tables for Statistical Reports
 }
 \description{
 This function creates an I-by-J frequency table and summarizes the results in a clean table for a statistical report.
 }
 \usage{
-tabfreq(x, y, latex = FALSE, xlevels = NULL, ylevels = NULL, yname = "Y variable", 
+tabfreq(x, y, latex = FALSE, xlevels = NULL, yname = "Y variable", ylevels = NULL, 
         test = "chi", decimals = 1, p.decimals = c(2, 3), p.cuts = 0.01, 
         p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n = FALSE, 
         compress = FALSE)
@@ -25,14 +25,14 @@ If TRUE, object returned will be formatted for printing in LaTeX using xtable [1
   \item{xlevels}{
 Optional character vector to label the levels of x. If unspecified, the function uses the values that x takes on.
 }
-  \item{ylevels}{
-Optional character vector to label the levels of y. If unspecified, the function uses the values that y takes on.
-}
   \item{yname}{
 Optional label for the y (row) variable.
 }
+  \item{ylevels}{
+Optional character vector to label the levels of y. If unspecified, the function uses the values that y takes on.
+}
   \item{test}{
-Controls test for association between x and y. "chi" for Pearson's chi-squared test, "fisher" for Fisher's exact test, "z" for z test without continuity correction, and "z.continuity" for z test with continuity correction. "z" and "z.continuity" can only be used if x and y are binary.
+Controls test for association between x and y. Use "chi" for Pearson's chi-squared test, which is valid only in large samples; "fisher" for Fisher's exact test, which is valid in small or large samples; "z" for z test without continuity correction; or "z.continuity" for z test with continuity correction. "z" and "z.continuity" can only be used if x and y are binary.
 }
   \item{decimals}{
 Number of decimal places for percentages.
@@ -53,10 +53,10 @@ If TRUE, p-values are printed with 0 before decimal place; if FALSE, the leading
 If TRUE, p-values rounded to 1 are not printed as 1, but as >0.99 (or similarly depending on values for p.decimals and p.cuts). 
 }
   \item{n}{
-If TRUE, the table returned will include sample sizes in the column headings. 
+If TRUE, the table will have a column for sample size. 
 }
   \item{compress}{
-If y has only two levels, setting compress to TRUE will produce a single row for n (percent) for the higher level. For example, if y is gender with 0 for female, 1 for male, setting compress = TRUE will return a table with n (percent) for males only.
+If y has only two levels, setting compress to TRUE will produce a single row for n (percent) for the higher level. For example, if y is sex with 0 for female, 1 for male, setting compress = TRUE will return a table with n (percent) for males only. If FALSE, the table would show n (percent) for both males and females.
 }
 }
 \details{
@@ -77,15 +77,15 @@ Dane R. Van Domelen
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{
-\code{\link{svydesign}}
-\code{\link{svyglm}}
-\code{\link{tabfreq.svy}}
-\code{\link{tabmeans}}
-\code{\link{tabmeans.svy}}
-\code{\link{tabglm}}
-\code{\link{tabglm.svy}}
-\code{\link{tabcox}}
-\code{\link{tabgee}}
+\code{\link{tabmeans}},
+\code{\link{tabmedians}},
+\code{\link{tabmulti}},
+\code{\link{tabglm}},
+\code{\link{tabcox}},
+\code{\link{tabgee}},
+\code{\link{tabfreq.svy}},
+\code{\link{tabmeans.svy}},
+\code{\link{tabglm.svy}},
 }
 \examples{
 # Load in sample dataset d and drop rows with missing values
@@ -114,11 +114,19 @@ freqtable4 <- rbind(tabfreq(x = d$group, y = d$sex, xlevels = groups,
                             ylevels = sexes, yname = "Sex"),
                     tabfreq(x = d$group, y = d$race, xlevels = groups, 
                             ylevels = races, yname = "Race"))
+                            
+# An easier way to make the above table is to call the tabmulti function
+freqtable5 <- tabmulti(dataset = d, xvarname = "group", yvarnames = c("sex", "race"),
+                       xlevels = groups, ynames = c("Sex", "Race"), 
+                       ylevels = list(sexes, races))
+                        
+# freqtable4 and freqtable5 are equivalent
+all(freqtable4 == freqtable5)
 
-# Click on freqtable1, freqtable2, freqtable3, and freqtable4 in the Workspace tab of 
-# RStudio to see the tables that could be copied and pasted into a report or manuscript.
-# Alternatively, setting the latex input to TRUE produces tables that can be inserted 
-# into LaTeX using the xtable package.
+# Click on freqtable1, freqtable2, freqtable3, freqtable4, or freqtable5 in the Workspace 
+# tab of RStudio to see the tables that could be copied and pasted into a report or 
+# manuscript. Alternatively, setting the latex input to TRUE produces tables that can be 
+# inserted into LaTeX using the xtable package.
 }
 \keyword{ table }
 \keyword{ frequency }
