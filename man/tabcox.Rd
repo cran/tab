@@ -7,9 +7,12 @@ Generate Summary Tables of Fitted Cox Proportional Hazards Regression Models for
 This function performs Cox proportional hazards regression using the R package survival [1, 2] and summarizes the results in a clean table for a statistical report.
 }
 \usage{
-tabcox(x, time, delta, latex = FALSE, xlabels = NULL, decimals = 2, p.decimals = c(2, 3), 
-       p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n = TRUE,
-       events = TRUE, coef = "n")
+tabcox(x, time, delta, latex = FALSE, xlabels = NULL, cluster = NULL, robust.se = TRUE, 
+       decimals = 2, p.decimals = c(2, 3), p.cuts = 0.01, p.lowerbound = 0.001, 
+       p.leading0 = TRUE, p.avoid1 = FALSE, n = FALSE, events = FALSE, coef = "n", 
+       greek.beta = FALSE, binary.compress = TRUE, bold.colnames = TRUE, 
+       bold.varnames = FALSE, bold.varlevels = FALSE, predictor.colname = "Variable", 
+       suppress.beta = FALSE)
 }
 \arguments{
   \item{x}{
@@ -22,11 +25,17 @@ Numeric values for time to event or censoring.
 Indicator variable where 1 = event observed, 0 = censored.
 }
   \item{latex}{
-If TRUE, object returned will be formatted for printing in LaTeX using xtable [3]; if FALSE, it will be formatted for copy-and-pasting from RStudio into a word processor.
+If TRUE, object returned is formatted for printing in LaTeX using xtable [3]; if FALSE, formatted for copy-and-pasting from RStudio into a word processor.
 }
   \item{xlabels}{
 Optional character vector to label the x variables and their levels. If unspecified, the function uses generic labels.
 }
+  \item{cluster}{
+Optional vector indicating clusters of subjects.
+}
+  \item{robust.se}{
+Only a valid option if clusters are specified. In that case, setting to TRUE requests robust sandwich method standard errors, while setting to FALSE requests normal standard errors.
+  }
   \item{decimals}{
 Number of decimal places for the regression coefficients, standard errors, hazard ratios, and confidence intervals. 
 }
@@ -54,6 +63,27 @@ If TRUE, the table returned will include a column for number of events observed 
   \item{coef}{
 If set to "x", function will standardize all variables in x that are continuous, providing standardized regression coefficients. Then, the interpretation of each hazard ratio is the hazard ratio associated with a one standard deviation increase in the predictor.
 }
+  \item{greek.beta}{
+If TRUE, column headings refer to regression parameters as Greek letter beta rather than Beta. Only used when latex input is set to TRUE.
+}
+  \item{binary.compress}{
+If TRUE, only one row of the table is dedicated to parameter estimates for each binary factor predictor. If FALSE, the table displays separate rows for the variable name and the two levels for each binary factor predictor, much like the presentation for factor variables with more than two levels.
+}
+  \item{bold.colnames}{
+If TRUE, column headings are printed in bold font. Only applies if latex = TRUE. 
+}
+  \item{bold.varnames}{
+If TRUE, variable names in the first column of the table are printed in bold font. Only applies if latex = TRUE.
+}
+  \item{bold.varlevels}{
+If TRUE, levels of each factor variable are printed in bold font. Only applies if latex = TRUE and there is at least one factor variable included as a predictor.
+}
+  \item{predictor.colname}{
+Character string with desired column heading for the column of predictors.
+}
+\item{suppress.beta}{
+If FALSE, the Beta (SE) column is not included. May often be preferred since the point and interval estimate for the hazard ratio contains the same information, but are easier to interpret.
+}
 }
 \details{
 NA
@@ -80,15 +110,17 @@ A function is currently being developed to create a summary table based on an ob
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{
-\code{\link{coxph}}
-\code{\link{tabfreq}}
-\code{\link{tabmeans}}
-\code{\link{tabmedians}}
-\code{\link{tabmulti}}
-\code{\link{tabglm}}
-\code{\link{tabgee}}
-\code{\link{tabfreq.svy}}
-\code{\link{tabmeans.svy}}
+\code{\link{coxph}},
+\code{\link{tabfreq}},
+\code{\link{tabmeans}},
+\code{\link{tabmedians}},
+\code{\link{tabmulti}},
+\code{\link{tabglm}},
+\code{\link{tabgee}},
+\code{\link{tabfreq.svy}},
+\code{\link{tabmeans.svy}},
+\code{\link{tabmedians.svy}},
+\code{\link{tabmulti.svy}},
 \code{\link{tabglm.svy}}
 }
 \examples{
@@ -100,15 +132,15 @@ d <- d[complete.cases(d), ]
 races <- c("White", "Black", "Mexican American", "Other")
 
 # Test whether race is associated with survival
-coxtable1 <- tabcox(x = d$race, time = d$time, delta = d$delta, 
+coxtable1 <- tabcox(x = d$Race, time = d$time, delta = d$delta, 
                     xlabels = c("Race", races))
 
 # Test whether age, sex, race, and treatment group are associated with survival
-coxtable2 <- tabcox(x = d[,c("age", "sex", "race", "group")], time = d$time, 
+coxtable2 <- tabcox(x = d[,c("Age", "Sex", "Race", "Group")], time = d$time, 
                     delta = d$delta, 
                     xlabels = c("Age", "Male", "Race", races, "Treatment"))
 
-# Click on coxtable1 and coxtable2 in the Workspace tab of RStudio to see the tables 
+# Click on coxtable1 or coxtable2 in the Workspace tab of RStudio to see the tables 
 # that could be copied and pasted into a report or manuscript. Alternatively, setting 
 # the latex input to TRUE produces tables that can be inserted into LaTeX using the 
 # xtable package.

@@ -12,8 +12,8 @@ Contains functions for generating tables for statistical reports written in Micr
 \tabular{ll}{
 Package: \tab tab\cr
 Type: \tab Package\cr
-Version: \tab 2.1.3\cr
-Date: \tab 2014-09-16\cr
+Version: \tab 3.1.1\cr
+Date: \tab 2015-02-12\cr
 License: \tab GPL-2\cr
 }
 The following functions are included in the package:
@@ -27,6 +27,8 @@ The following functions are included in the package:
 \code{\link{tabgee}},
 \code{\link{tabfreq.svy}},
 \code{\link{tabmeans.svy}},
+\code{\link{tabmedians.svy}},
+\code{\link{tabmulti.svy}},
 \code{\link{tabglm.svy}},
 \code{\link{formatp}}
 }
@@ -54,42 +56,41 @@ NA
 data(d)
 d <- d[complete.cases(d), ]
 
-# Create labels for treatment group, sex, and race
-groups <- c("Control", "Treatment")
-sexes <- c("Female", "Male")
-races <- c("White", "Black", "Mexican American", "Other")
-
 # Compare race distribution by group, with group as column variable
-freqtable <- tabfreq(x = d$group, y = d$race, xlevels = groups, 
-                     ylevels = races, yname = "Race")
+freqtable <- tabfreq(x = d$Group, y = d$Race)
 
 # Compare mean BMI in control group vs. treatment group
-meanstable <- tabmeans(x = d$group, y = d$bmi, xlevels = groups, yname = "BMI")
+meanstable <- tabmeans(x = d$Group, y = d$BMI)
+
+# Generate plot comparing mean BMI in control group vs. treatment group
+meansfig <- tabmeans(x = d$Group, y = d$BMI, fig = TRUE)
 
 # Compare median BMI in control group vs. treatment group
-medianstable <- tabmedians(x = d$group, y = d$bmi, xlevels = groups, yname = "BMI")
+medianstable <- tabmedians(x = d$Group, y = d$BMI)
 
 # Create a typical Table 1 for statistical report or manuscript
-table1 <- tabmulti(dataset = d, xvarname = "group",
-                   yvarnames = c("age", "sex", "race", "bmi"), xlevels = groups,
-                   ynames = c("Age", "Sex", "Race", "BMI"), ylevels = list(sexes, races))
+table1 <- tabmulti(dataset = d, xvarname = "Group",
+                   yvarnames = c("Age", "Sex", "Race", "BMI"))
+                   
+# Create vector of race labels for use in regression tables
+races <- c("White", "Black", "Mexican American", "other")
 
 # Test whether age, sex, race, and treatment group are associated with BMI
-glmfit1 <- glm(bmi ~ age + sex + race + group, data = d)
+glmfit1 <- glm(BMI ~ Age + Sex + Race + Group, data = d)
 lintable <- tabglm(glmfit = glmfit1, 
                    xlabels = c("Intercept", "Age", "Male", "Race", races, "Treatment"))
 
 # Test whether age, sex, race, and treatment group are associated with 1-year mortality
-glmfit2 <- glm(death_1yr ~ age + sex + race + group, data = d, family = binomial)
+glmfit2 <- glm(death_1yr ~ Age + Sex + Race + Group, data = d, family = binomial)
 logtable <- tabglm(glmfit = glmfit2, ci.beta = FALSE,
                    xlabels = c("Intercept", "Age", "Male", "Race", races, "Treatment"))
 
 # Test whether age, sex, race, and treatment group are associated with survival
-coxtable <- tabcox(x = d[,c("age", "sex", "race", "group")], time = d$time, 
+coxtable <- tabcox(x = d[,c("Age", "Sex", "Race", "Group")], time = d$time, 
                    delta = d$delta, 
                    xlabels = c("Age", "Male", "Race", races, "Treatment"))
 
-# Click on freqtable, meanstable, table1, lintable, logtable, and coxtable in 
+# Click on freqtable, meanstable, table1, lintable, logtable, or coxtable in 
 # the Workspace tab of RStudio to see the tables that could be copied and pasted 
 # into a Word document. Alternatively, setting the latex input to TRUE produces
 # tables that can be inserted into LaTeX using the xtable package.

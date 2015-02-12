@@ -7,10 +7,12 @@ Generate Frequency Tables for Statistical Reports (Survey Data)
 This function creates an I-by-J frequency table and summarizes the results in a clean table for a statistical report. Similar to tabfreq, but for survey data. Relies heavily on the 'survey' package [1,2].
 }
 \usage{
-tabfreq.svy(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y variable", 
-            ylevels = NULL, test = "F", decimals = 1, p.decimals = c(2, 3), 
-            p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
-            p.avoid1 = FALSE, n = FALSE, compress = FALSE)
+tabfreq.svy(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y variable",
+            ylevels = NULL, test = "F", decimals = 1, p.decimals = c(2, 3), p.cuts = 0.01,
+            p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n.column = FALSE,
+            n.headings = TRUE, compress = FALSE, compress.val = NULL, 
+            bold.colnames = TRUE, bold.varnames = FALSE, bold.varlevels = FALSE, 
+            variable.colname = "Variable")
 }
 \arguments{
   \item{svy}{
@@ -23,7 +25,7 @@ Character string specifying column variable name. Must match one of names(svy$va
 Character string specifying row variable name. Must match one of names(svy$variables).
 }
   \item{latex}{
-If TRUE, object returned will be formatted for printing in LaTeX using xtable [3]; if FALSE, it will be formatted for copy-and-pasting from RStudio into a word processor.
+If TRUE, object returned is formatted for printing in LaTeX using xtable [3]; if FALSE, formatted for copy-and-pasting from RStudio into a word processor.
 }
   \item{xlevels}{
 Optional character vector to label the levels of x. If unspecified, the function uses the values that x takes on.
@@ -32,7 +34,7 @@ Optional character vector to label the levels of x. If unspecified, the function
 Optional label for the y (row) variable.
 }
   \item{ylevels}{
-Optional character vector to label the levels of y. If unspecified, the function uses the values that y takes on.
+Optional character vector to label the levels of y. If unspecified, the function uses the values that y takes on. Note that levels of y will be listed in the order that they appear when you run table(y, x).
 }
   \item{test}{
 Controls test for association between x and y. Must be a possible value for the 'statistic' input of the svychisq function in the survey package [1,2]: 'F', 'Chisq', 'Wald', 'adjWald', 'lincom', or 'saddlepoint'.
@@ -55,11 +57,29 @@ If TRUE, p-values are printed with 0 before decimal place; if FALSE, the leading
   \item{p.avoid1}{
 If TRUE, p-values rounded to 1 are not printed as 1, but as >0.99 (or similarly depending on values for p.decimals and p.cuts). 
 }
-  \item{n}{
-If TRUE, the table will have a column for sample size.
+  \item{n.column}{
+If TRUE, the table will have a column for (unweighted) sample size.
+}
+  \item{n.headings}{
+If TRUE, the table will indicate the (unweighted) sample size overall and in each group in parentheses after the column headings.
 }
   \item{compress}{
 If y has only two levels, setting compress to TRUE will produce a single row for n (percent) for the higher level. For example, if y is gender with 0 for female, 1 for male, setting compress = TRUE will return a table with n (percent) for males only.
+}
+  \item{compress.val}{
+When x and y are both binary, and compress is TRUE, compress.val can be used to specify which level of the y variable should be shown. For example, if x is sex and y is obesity status with levels "Obese" and "Not Obese", setting compress to TRUE and compress.val to "Not Obese" would result in the table comparing the proportions of subjects that are not obese by sex.
+}
+  \item{bold.colnames}{
+If TRUE, column headings are printed in bold font. Only applies if latex = TRUE. 
+}
+  \item{bold.varnames}{
+If TRUE, variable name in the first column of the table is printed in bold font. Only applies if latex = TRUE.
+}
+  \item{bold.varlevels}{
+If TRUE, levels of the y variable are printed in bold font. Only applies if latex = TRUE.
+}
+  \item{variable.colname}{
+Character string with desired heading for first column of table, which shows the y variable name and levels.
 }
 }
 \details{
@@ -84,9 +104,8 @@ Dane R. Van Domelen
 Currently this function is fairly basic. Future versions should allow for more flexibility. If you have any specific suggestions for additional options, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{
-\code{\link{svydesign}}
-\code{\link{svyglm}}
-\code{\link{svychisq}}
+\code{\link{svydesign}},
+\code{\link{svychisq}},
 \code{\link{tabfreq}},
 \code{\link{tabmeans}},
 \code{\link{tabmedians}},
@@ -95,7 +114,9 @@ Currently this function is fairly basic. Future versions should allow for more f
 \code{\link{tabcox}},
 \code{\link{tabgee}},
 \code{\link{tabmeans.svy}},
-\code{\link{tabglm.svy}},
+\code{\link{tabmedians.svy}},
+\code{\link{tabmulti.svy}},
+\code{\link{tabglm.svy}}
 }
 \examples{
 NA

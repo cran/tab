@@ -1,7 +1,9 @@
 tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decimals = 2, 
                    p.decimals = c(2, 3), p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
                    p.avoid1 = FALSE, basic.form = FALSE, intercept = TRUE, n.id = FALSE, 
-                   n.total = FALSE, or = TRUE, robust = TRUE, data = NULL) {
+                   n.total = FALSE, or = TRUE, robust = TRUE, data = NULL, greek.beta = FALSE,
+                   binary.compress = TRUE, bold.colnames = TRUE, bold.varnames = FALSE, 
+                   bold.varlevels = FALSE, predictor.colname = "Variable") {
   
   # If any inputs are not correct class, return error
   if (!all(class(geefit) == c("gee", "glm"))) {
@@ -54,6 +56,24 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
       stop("For data input, please enter data frame or matrix.")
     }
   }
+  if (!is.logical(greek.beta)) {
+    stop("For greek.beta input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(binary.compress)) {
+    stop("For binary.compress input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(bold.colnames)) {
+    stop("For bold.colnames input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(bold.varnames)) {
+    stop("For bold.varnames input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(bold.varlevels)) {
+    stop("For bold.varlevels input, please enter TRUE or FALSE")
+  }
+  if (!is.character(predictor.colname)) {
+    stop("For predictor.colname input, please enter a character string")
+  }
   
   # Convert decimals to variable for sprintf
   spf <- paste("%0.", decimals, "f", sep = "")
@@ -70,6 +90,18 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   # Initialized vectors for formatting factor variables in table
   spaces <- c()
   refs <- c()
+  
+  # Get indices of variable names
+  predcounter <- 0
+  pred <- c()
+  for (ii in 1:(length(model)-1)) {
+    pred[ii] <- predcounter + 1
+    if (! model[ii] == "factor" | (model[ii] == "factor" & length(unique(data[, names(model)[ii]])) == 2 & binary.compress == TRUE)) {
+      predcounter <- predcounter + 1
+    } else {
+      predcounter <- predcounter + length(unique(data[, names(model)[ii]]))
+    }
+  }
   
   # Initialize table
   tbl <- matrix("", nrow = 100, ncol = 8)
@@ -119,7 +151,7 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   
     # Otherwise format factors neatly
     for (ii in 2:(length(model)-1)) {
-      if (model[ii] != "factor") {
+      if (model[ii] != "factor" | (model[ii] == "factor" & length(unique(data[, names(model)[ii]])) == 2 & binary.compress == TRUE))  {
         beta <- coef[coefindex, 1]
         se <- coef[coefindex, secol]
         or <- exp(beta)
@@ -137,7 +169,7 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
         
       } else {
         levels <- sort(unique(data[, names(model)[ii]]))
-        if (length(levels) == 2) {
+        if (length(levels) == 2 & binary.compress == TRUE) {
           beta <- coef[coefindex, 1]
           se <- coef[coefindex, secol]
           or <- exp(beta)
@@ -187,7 +219,7 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   tbl <- tbl[1:(tabindex-1),, drop = FALSE]
   
   # Add column names
-  colnames(tbl) <- c("Variable", "Clusters", "Observations", "Beta (SE)", "95% CI for Beta", "OR", "95% CI for OR", "P")
+  colnames(tbl) <- c(predictor.colname, "Clusters", "Observations", "Beta (SE)", "95% CI for Beta", "OR", "95% CI for OR", "P")
   
   # Remove n columns if requested
   if (n.id == FALSE) {
@@ -219,13 +251,36 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
   
   # If latex is TRUE, do some re-formatting
   if (latex == TRUE) {
+    if (greek.beta == TRUE) {
+      colnames(tbl)[which(colnames(tbl) == "Beta (SE)")] <- "$\\hat{\\beta}$ (SE)"
+      colnames(tbl)[which(colnames(tbl) == "95% CI for Beta")] <- "95% CI for $\\beta$"
+      colnames(tbl)[which(colnames(tbl) == "exp(Beta)")] <- "exp($\\beta)$"
+      colnames(tbl)[which(colnames(tbl) == "95% CI for exp(Beta)")] <- "95\\% CI for exp($\\beta$)"
+    }
     plocs <- which(substr(tbl[, "P"], 1, 1) == "<")
     if (length(plocs) > 0) {
       tbl[plocs, "P"] <- paste("$<$", substring(tbl[plocs, "P"], 2), sep = "")
     }
-    spacelocs <- which(substr(tbl[, "Variable"], 1, 2) == "  ")
+    spacelocs <- which(substr(tbl[, predictor.colname], 1, 2) == "  ")
     if (length(spacelocs) > 0) {
-      tbl[spacelocs, "Variable"] <- paste("\\hskip .3cm ", substring(tbl[spacelocs, "Variable"], 3), sep = "")
+      tbl[spacelocs, predictor.colname] <- paste("\\hskip .4cm ", substring(tbl[spacelocs, predictor.colname], 3), sep = "")
+    }
+    chars <- strsplit(colnames(tbl), "")
+    for (ii in 1:length(chars)) {
+      percentlocs <- which(chars[[ii]] == "%")
+      if (length(percentlocs) > 0) {
+        chars[[ii]][percentlocs] <- "\\%"
+      }
+    }
+    colnames(tbl) <- sapply(chars, function(x) paste(x, sep = "", collapse = ""))
+    if (bold.colnames == TRUE) {
+      colnames(tbl) <- paste("$\\textbf{", colnames(tbl), "}$", sep = "")
+    }
+    if (bold.varnames == TRUE) {
+      tbl[pred, 1] <- paste("$\\textbf{", tbl[pred, 1], "}$")
+    }
+    if (bold.varlevels == TRUE) {
+      tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1] <- paste("$\\textbf{", tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1], "}$", sep = "")
     }
   }
   

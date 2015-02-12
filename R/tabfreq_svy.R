@@ -1,7 +1,9 @@
 tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y variable",
-                        ylevels = NULL, test = "F", decimals = 1, p.decimals = c(2,3), 
-                        p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
-                        p.avoid1 = FALSE, n = FALSE, compress = FALSE) {
+                        ylevels = NULL, test = "F", decimals = 1, p.decimals = c(2,3), p.cuts = 0.01,
+                        p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n.column = FALSE,
+                        n.headings = TRUE, compress = FALSE, compress.val = NULL, 
+                        bold.colnames = TRUE, bold.varnames = FALSE, bold.varlevels = FALSE, 
+                        variable.colname = "Variable") {
   
   # If any inputs are not correct class, return error
   if (!is.logical(latex)) {
@@ -39,11 +41,26 @@ tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y var
   if (!is.logical(p.avoid1)) {
     stop("For p.avoid1 input, please enter TRUE or FALSE")
   }
-  if (!is.logical(n)) {
-    stop("For n input, please enter TRUE or FALSE")
+  if (!is.logical(n.column)) {
+    stop("For n.column input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(n.headings)) {
+    stop("For n.headings input, please enter TRUE or FALSE")
   }
   if (!is.logical(compress)) {
     stop("For compress input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(bold.colnames)) {
+    stop("For bold.colnames input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(bold.varnames)) {
+    stop("For bold.varnames input, please enter TRUE or FALSE")
+  }
+  if (!is.logical(bold.varlevels)) {
+    stop("For bold.varlevels input, please enter TRUE or FALSE")
+  }
+  if (!is.character(variable.colname)) {
+    stop("For variable.colname input, please enter a character string")
   }
   
   # Convert decimals to variable for sprintf
@@ -77,7 +94,7 @@ tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y var
   }
   
   # Initialize table
-  tbl <- matrix("", nrow = nrow(counts)+1, ncol = ncol(counts)+4) 
+  tbl <- matrix("", nrow = nrow(counts)+1, ncol = ncol(counts) + 4) 
   
   # Add variable name and levels of Y to first row
   tbl[, 1] <- c(paste(yname, ", n (%)", sep = ""), paste("  ", ylevels, sep = ""))
@@ -103,26 +120,35 @@ tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y var
   }
   tbl[1, ncol(tbl)] <- formatp(p = pval, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound, leading0 = p.leading0, avoid1 = p.avoid1)
   
-  # If y binary and compress is TRUE, compress table to a single row
-  if (nrow(counts) <= 2 & compress == TRUE) {
-    tbl <- matrix(c(tbl[1, 1], tbl[nrow(tbl), 2:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
-  }
+  #   # If y binary and compress is TRUE, compress table to a single row
+  #   if (nrow(counts) <= 2 & compress == TRUE) {
+  #     tbl <- matrix(c(tbl[1, 1:2], tbl[nrow(tbl), 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
+  #   }
   
   # If xlevels unspecified, set to actual values
   if (is.null(xlevels)) {
     xlevels <- colnames(counts)
   }
   
-  # Add column names
-  colnames(tbl) <- c("Variable", "N", "Overall", xlevels, "P")
-  
   # If y binary and compress is TRUE, compress table to a single row
   if (nrow(counts) <= 2 & compress == TRUE) {
-    tbl <- matrix(c(tbl[1, 1:2], tbl[nrow(tbl), 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
+    if (is.null(compress.val)) {
+      tbl <- matrix(c(tbl[1, 1:2], tbl[nrow(tbl), 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
+    } else {
+      whichrow <- which(rownames(counts) == as.character(compress.val)) + 1
+      tbl <- matrix(c(tbl[1, 1:2], tbl[whichrow, 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
+    }
+  }
+  
+  # Add column names, with sample sizes for each group if requested
+  if (n.headings == FALSE) {
+    colnames(tbl) <- c(variable.colname, "N", "Overall", xlevels, "P")
+  } else {
+    colnames(tbl) <- c(variable.colname, "N", paste(c("Overall", xlevels), " (n = ", c(sum(counts), apply(counts, 2, sum)), ")", sep = ""), "P")
   }
   
   # Drop N column if requested
-  if (n == FALSE) {
+  if (n.column == FALSE) {
     tbl <- tbl[, -which(colnames(tbl) == "N"), drop = FALSE]
   }
   
@@ -132,18 +158,27 @@ tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y var
     if (length(plocs) > 0) {
       tbl[plocs, "P"] <- paste("$<$", substring(tbl[plocs, "P"], 2), sep = "")
     }
-    spacelocs <- which(substr(tbl[, "Variable"], 1, 2) == "  ")
+    spacelocs <- which(substr(tbl[, variable.colname], 1, 2) == "  ")
     if (length(spacelocs) > 0) {
-      tbl[spacelocs, "Variable"] <- paste("\\hskip .3cm ", substring(tbl[spacelocs, "Variable"], 3), sep = "")
+      tbl[spacelocs, variable.colname] <- paste("\\hskip .3cm ", substring(tbl[spacelocs, variable.colname], 3), sep = "")
     }
-    chars <- strsplit(tbl[, "Variable"], "")
+    chars <- strsplit(tbl[, variable.colname], "")
     for (ii in 1:length(chars)) {
       percentlocs <- which(chars[[ii]] == "%")
       if (length(percentlocs) > 0) {
         chars[[ii]][percentlocs] <- "\\%"
       }
     }
-    tbl[, "Variable"] <- sapply(chars, function(x) paste(x, sep = "", collapse = ""))
+    tbl[, variable.colname] <- sapply(chars, function(x) paste(x, sep = "", collapse = ""))
+    if (bold.colnames == TRUE) {
+      colnames(tbl) <- paste("$\\textbf{", colnames(tbl), "}$", sep = "")
+    }
+    if (bold.varnames == TRUE) {
+      tbl[1, 1] <- paste("$\\textbf{", tbl[1, 1], "}$")
+    }
+    if (bold.varlevels == TRUE) {
+      tbl[2:nrow(tbl), 1] <- paste("$\\textbf{", tbl[2:nrow(tbl), 1], "}$", sep = "")
+    }
   }
   
   # Return table
