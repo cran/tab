@@ -12,7 +12,7 @@ tabcox(x, time, delta, latex = FALSE, xlabels = NULL, cluster = NULL, robust.se 
        p.leading0 = TRUE, p.avoid1 = FALSE, n = FALSE, events = FALSE, coef = "n", 
        greek.beta = FALSE, binary.compress = TRUE, bold.colnames = TRUE, 
        bold.varnames = FALSE, bold.varlevels = FALSE, predictor.colname = "Variable", 
-       suppress.beta = FALSE)
+       suppress.beta = FALSE, print.html = FALSE, html.filename = "table1.html")
 }
 \arguments{
   \item{x}{
@@ -84,6 +84,12 @@ Character string with desired column heading for the column of predictors.
 \item{suppress.beta}{
 If FALSE, the Beta (SE) column is not included. May often be preferred since the point and interval estimate for the hazard ratio contains the same information, but are easier to interpret.
 }
+  \item{print.html}{
+If TRUE, function prints a .html file to the current working directory.
+}
+  \item{html.filename}{
+Character string indicating the name of the .html file that gets printed if print.html is set to TRUE.
+}
 }
 \details{
 NA
@@ -92,12 +98,12 @@ NA
 A character matrix with the results of the Cox PH regression. If you click on the matrix name under "Data" in the RStudio Workspace tab, you will see a clean table that you can copy and paste into a statistical report or manuscript. If latex is set to TRUE, the character matrix will be formatted for inserting into an Sweave or Knitr report using the xtable package [3].
 }
 \references{
-1. Therneau T (2013). A Package for Survival Analysis in S. R package version 2.37-4, \url{http://CRAN.R-project.org/package=survival}.
+1. Therneau T (2013). A Package for Survival Analysis in S. R package version 2.37-4, \url{https://cran.r-project.org/package=survival}.
 
 2. Terry M. Therneau and Patricia M. Grambsch (2000). Modeling Survival Data: Extending the Cox Model.
 Springer, New York. ISBN 0-387-98784-3.
 
-3. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{http://CRAN.R-project.org/package=xtable}.
+3. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{https://cran.r-project.org/package=xtable}.
 
 Acknowledgment: This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-0940903.
 }
@@ -105,6 +111,8 @@ Acknowledgment: This material is based upon work supported by the National Scien
 Dane R. Van Domelen
 }
 \note{
+In older versions of RStudio, it was easier to copy tables from the Viewer and paste them directly into a text editor. The Viewer changed a few versions ago, and now it seems to work better if you paste into Microsoft Excel, and then copy again and paste into Microsoft Word. This is a little clumsy, so I recently added the new option to print a .html file with the table to your current working directory (see function inputs print.html and html.filename). Copying and pasting from the table from the .html file into a text editor seems to work well.
+
 A function is currently being developed to create a summary table based on an object from coxph rather than the data vectors themselves (similarly to how tabglm works).
 
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!

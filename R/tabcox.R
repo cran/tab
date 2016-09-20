@@ -3,7 +3,7 @@ tabcox <- function(x, time, delta, latex = FALSE, xlabels = NULL, cluster = NULL
                    p.leading0 = TRUE, p.avoid1 = FALSE, n = FALSE, events = FALSE, coef = "n", 
                    greek.beta = FALSE, binary.compress = TRUE, bold.colnames = TRUE, 
                    bold.varnames = FALSE, bold.varlevels = FALSE, predictor.colname = "Variable", 
-                   suppress.beta = FALSE) {
+                   suppress.beta = FALSE, print.html = FALSE, html.filename = "table1.html") {
   
   # If any inputs are not correct class, return error
   if (!is.logical(latex)) {
@@ -254,6 +254,15 @@ tabcox <- function(x, time, delta, latex = FALSE, xlabels = NULL, cluster = NULL
     if (bold.varlevels == TRUE) {
       tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1] <- paste("$\\textbf{", tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1], "}$", sep = "")
     }
+  }
+  
+  # Print html version of table if requested
+  if (print.html) {
+    
+    tbl.xtable <- xtable(tbl, align = paste("ll", paste(rep("r", ncol(tbl) - 1), collapse = ""), sep = "", collapse = ""))
+    print(tbl.xtable, include.rownames = FALSE, type = "html", file = html.filename,
+          sanitize.text.function = function(x) {ifelse(substr(x, 1, 1) == " ", paste("&nbsp &nbsp", x), x)})
+    
   }
   
   # Return table

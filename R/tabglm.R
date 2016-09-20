@@ -3,7 +3,8 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
                    p.leading0 = TRUE, p.avoid1 = FALSE, basic.form = FALSE, intercept = TRUE, 
                    n = FALSE, events = FALSE, greek.beta = FALSE, binary.compress = TRUE, 
                    bold.colnames = TRUE, bold.varnames = FALSE, bold.varlevels = FALSE, 
-                   predictor.colname = "Variable") {
+                   predictor.colname = "Variable", print.html = FALSE, 
+                   html.filename = "table1.html") {
   
   # If glmfit is not correct class, return error
   if (!all(class(glmfit) == c("glm", "lm"))) {
@@ -322,6 +323,15 @@ tabglm <- function(glmfit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, infere
     if (bold.varlevels == TRUE) {
       tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1] <- paste("$\\textbf{", tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1], "}$", sep = "")
     }
+  }
+  
+  # Print html version of table if requested
+  if (print.html) {
+    
+    tbl.xtable <- xtable(tbl, align = paste("ll", paste(rep("r", ncol(tbl) - 1), collapse = ""), sep = "", collapse = ""))
+    print(tbl.xtable, include.rownames = FALSE, type = "html", file = html.filename,
+          sanitize.text.function = function(x) {ifelse(substr(x, 1, 1) == " ", paste("&nbsp &nbsp", x), x)})
+    
   }
   
   # Return tbl

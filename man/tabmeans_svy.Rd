@@ -76,11 +76,11 @@ NA
 A character matrix with the requested table comparing mean y across levels of x. If you click on the matrix name under "Data" in the RStudio Workspace tab, you will see a clean table that you can copy and paste into a statistical report or manuscript. If latex is set to TRUE, the character matrix will be formatted for inserting into an Sweave or Knitr report using the xtable package [3].
 }
 \references{
-1. Lumley T (2012). survey: analysis of complex survey samples. R package version 3.28-2, \url{http://CRAN.R-project.org/package=survey}.
+1. Lumley T (2012). survey: analysis of complex survey samples. R package version 3.28-2, \url{https://cran.r-project.org/package=survey}.
 
 2. Lumley T (2014). Analysis of complex survey samples. Journal of Statistical Software 9(1): 1-19.
 
-3. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{http://CRAN.R-project.org/package=xtable}.
+3. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{https://cran.r-project.org/package=xtable}.
 
 Acknowledgment: This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-0940903.
 }

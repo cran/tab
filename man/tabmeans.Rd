@@ -13,7 +13,8 @@ tabmeans(x, y, latex = FALSE, variance = "unequal", xname = NULL, xlevels = NULL
          p.decimals = c(2, 3), p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE,
          p.avoid1 = FALSE, overall.column = TRUE, n.column = FALSE, n.headings = TRUE,
          bold.colnames = TRUE, bold.varnames = FALSE, variable.colname = "Variable", 
-         fig = FALSE, fig.errorbars = "z.ci")
+         fig = FALSE, fig.errorbars = "z.ci", fig.title = NULL, print.html = FALSE,
+         html.filename = "table1.html")
 }
 \arguments{
   \item{x}{
@@ -97,6 +98,15 @@ If TRUE, a figure is returned rather than a table. The figure shows mean (95 per
   \item{fig.errorbars}{
 Controls error bars around mean when fig is TRUE. Possible values are "sd" for +/- 1 standard deviation, "se" for +/- 1 standard error, "t.ci" for 95\% confidence interval based on t distribution, "z.ci" for 95\% confidence interval based on z distribution, and "none" for no error bars.
 }
+  \item{fig.title}{
+Title of figure. If unspecified, title is set to "Mean yname by xname".
+}
+  \item{print.html}{
+If TRUE, function prints a .html file to the current working directory.
+}
+  \item{html.filename}{
+Character string indicating the name of the .html file that gets printed if print.html is set to TRUE.
+}
 }
 \details{
 If x has two levels, a t-test is used to test for a difference in means. If x has more than two levels, a one-way analysis of variance is used to test for a difference in means across the groups.
@@ -107,7 +117,7 @@ Both x and y can have missing values. The function drops observations with missi
 A character matrix with the requested table comparing mean y across levels of x. If you click on the matrix name under "Data" in the RStudio Workspace tab, you will see a clean table that you can copy and paste into a statistical report or manuscript. If latex is set to TRUE, the character matrix will be formatted for inserting into an Sweave or Knitr report using the xtable package [1].
 }
 \references{
-1. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{http://CRAN.R-project.org/package=xtable}.
+1. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{https://cran.r-project.org/package=xtable}.
 
 Acknowledgment: This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-0940903.
 }
@@ -115,6 +125,8 @@ Acknowledgment: This material is based upon work supported by the National Scien
 Dane R. Van Domelen
 }
 \note{
+In older versions of RStudio, it was easier to copy tables from the Viewer and paste them directly into a text editor. The Viewer changed a few versions ago, and now it seems to work better if you paste into Microsoft Excel, and then copy again and paste into Microsoft Word. This is a little clumsy, so I recently added the new option to print a .html file with the table to your current working directory (see function inputs print.html and html.filename). Copying and pasting from the table from the .html file into a text editor seems to work well.
+
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{

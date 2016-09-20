@@ -3,7 +3,8 @@ tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quanti
                        decimals = NULL, p.include = TRUE, p.decimals = c(2, 3), p.cuts = 0.01, 
                        p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, 
                        overall.column = TRUE, n.column = FALSE, n.headings = TRUE, 
-                       bold.colnames = TRUE, bold.varnames = FALSE, variable.colname = "Variable") {
+                       bold.colnames = TRUE, bold.varnames = FALSE, variable.colname = "Variable", 
+                       print.html = FALSE, html.filename = "table1.html") {
   
   # If yname unspecified, use variable name
   if (is.null(yname)) {
@@ -29,8 +30,8 @@ tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quanti
   if (!is.logical(quantile.vals)) {
     stop("For quantile.vals input, please enter TRUE or FALSE")
   }
-  if (! parenth %in% c("none", "iqr", "range", "minmax", "q1q3")) {
-    stop("For parenth input, please enter 'none', 'iqr', 'range', 'minmax', or 'q1q3'")
+  if (! parenth %in% c("none", "iqr", "range", "minmax", "q1q3", "ci.90", "ci.95", "ci.99")) {
+    stop("For parenth input, please enter 'none', 'iqr', 'range', 'minmax', 'q1q3', 'ci.90', 'ci.95', or 'ci.99'")
   }
   if (!is.null(text.label) && !is.character(text.label)) {
     stop("For text.label input, please enter a character string or just leave it unspecified. Use 'none' to request no label")
@@ -144,6 +145,24 @@ tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quanti
       text.label <- ", Median (Min-Max)"
     } else if (parenth == "q1q3") {
       text.label <- ", Median (Q1-Q3)"
+    } else if (parenth == "ci.90") {
+      if (latex == TRUE) {
+        text.label <- ", Median (90\\% CI)"
+      } else {
+        text.label <- ", Median (90% CI)"
+      }
+    } else if (parenth == "ci.95") {
+      if (latex == TRUE) {
+        text.label <- ", Median (95\\% CI)"
+      } else {
+        text.label <- ", Median (95% CI)"
+      }
+    } else if (parenth == "ci.99") {
+      if (latex == TRUE) {
+        text.label <- ", Median (99\\% CI)"
+      } else {
+        text.label <- ", Median (99% CI)"
+      }
     } else if (parenth == "none") {
       text.label <- ", Median"
     }
@@ -180,7 +199,91 @@ tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quanti
     parent <- paste(sprintf(spf, parent2 - parent1))
     tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, quantile(y, probs = 0.75) - quantile(y, probs = 0.25)), ")", sep = "")
     tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-  } else if (parenth == "none") {
+  } else if (parenth == "ci.90") {
+    if (all(ns >= 10)) {
+      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[length(x)/2 - qnorm(p = 0.95)*sqrt(length(x))/2])
+      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[1 + length(x)/2 + qnorm(p = 0.95)*sqrt(length(x))/2])
+      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
+      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, sort(y)[length(y)/2 - qnorm(p = 0.95)*sqrt(length(y))/2]), parenth.sep, sprintf(spf, sort(y)[1 + length(y)/2 + qnorm(p = 0.95)*sqrt(length(y))/2]), ")", sep = "")
+      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
+    } else {
+      func <- function(x, lower.or.upper) {
+        sorted.vals <- sort(x)
+        n <- length(sorted.vals)
+        probs <- dbinom(x = 0:n, prob = 0.5, size = n)
+        sorted.probs <- sort(probs, decreasing = TRUE)
+        min.prob <- sorted.probs[which(cumsum(sorted.probs) >= 0.9)[1]]
+        ranks <- which(probs >= min.prob)
+        if (lower.or.upper == "lower") {
+          ret <- sorted.vals[ranks[1]]
+        } else if (lower.or.upper == "upper") {
+          ret <- sorted.vals[rev(ranks)[1]]
+        }
+        return(ret)
+      }
+      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "lower"))
+      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "upper"))
+      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
+      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, func(y, "lower")), parenth.sep, sprintf(spf, func(y, "upper")), ")", sep = "")
+      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "") 
+    }
+  } else if (parenth == "ci.95") {
+    if (all(ns >= 10)) {
+      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[length(x)/2 - qnorm(p = 0.975)*sqrt(length(x))/2])
+      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[1 + length(x)/2 + qnorm(p = 0.975)*sqrt(length(x))/2])
+      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
+      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, sort(y)[length(y)/2 - qnorm(p = 0.975)*sqrt(length(y))/2]), parenth.sep, sprintf(spf, sort(y)[1 + length(y)/2 + qnorm(p = 0.975)*sqrt(length(y))/2]), ")", sep = "")
+      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
+    } else {
+      func <- function(x, lower.or.upper) {
+        sorted.vals <- sort(x)
+        n <- length(sorted.vals)
+        probs <- dbinom(x = 0:n, prob = 0.5, size = n)
+        sorted.probs <- sort(probs, decreasing = TRUE)
+        min.prob <- sorted.probs[which(cumsum(sorted.probs) >= 0.95)[1]]
+        ranks <- which(probs >= min.prob)
+        if (lower.or.upper == "lower") {
+          ret <- sorted.vals[ranks[1]]
+        } else if (lower.or.upper == "upper") {
+          ret <- sorted.vals[rev(ranks)[1]]
+        }
+        return(ret)
+      }
+      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "lower"))
+      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "upper"))
+      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
+      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, func(y, "lower")), parenth.sep, sprintf(spf, func(y, "upper")), ")", sep = "")
+      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "") 
+    }
+  } else if (parenth == "ci.99") {
+    if (all(ns >= 10)) {
+      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[length(x)/2 - qnorm(p = 0.995)*sqrt(length(x))/2])
+      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[1 + length(x)/2 + qnorm(p = 0.995)*sqrt(length(x))/2])
+      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
+      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, sort(y)[length(y)/2 - qnorm(p = 0.995)*sqrt(length(y))/2]), parenth.sep, sprintf(spf, sort(y)[1 + length(y)/2 + qnorm(p = 0.995)*sqrt(length(y))/2]), ")", sep = "")
+      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
+    } else {
+      func <- function(x, lower.or.upper) {
+        sorted.vals <- sort(x)
+        n <- length(sorted.vals)
+        probs <- dbinom(x = 0:n, prob = 0.5, size = n)
+        sorted.probs <- sort(probs, decreasing = TRUE)
+        min.prob <- sorted.probs[which(cumsum(sorted.probs) >= 0.99)[1]]
+        ranks <- which(probs >= min.prob)
+        if (lower.or.upper == "lower") {
+          ret <- sorted.vals[ranks[1]]
+        } else if (lower.or.upper == "upper") {
+          ret <- sorted.vals[rev(ranks)[1]]
+        }
+        return(ret)
+      }
+      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "lower"))
+      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "upper"))
+      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
+      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, func(y, "lower")), parenth.sep, sprintf(spf, func(y, "upper")), ")", sep = "")
+      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "") 
+    }
+  }  else if (parenth == "none") {
     tbl[1, 3] <- sprintf(spf, median(y))
     tbl[1, 4:(ncol(tbl)-1)] <- sprintf(spf, medians)
   }
@@ -245,6 +348,15 @@ tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quanti
     if (bold.varnames == TRUE) {
       tbl[1, 1] <- paste("$\\textbf{", tbl[1, 1], "}$")
     }
+  }
+  
+  # Print html version of table if requested
+  if (print.html) {
+    
+    tbl.xtable <- xtable(tbl, align = paste("ll", paste(rep("r", ncol(tbl) - 1), collapse = ""), sep = "", collapse = ""))
+    print(tbl.xtable, include.rownames = FALSE, type = "html", file = html.filename,
+          sanitize.text.function = function(x) {ifelse(substr(x, 1, 1) == " ", paste("&nbsp &nbsp", x), x)})
+    
   }
   
   # Return table

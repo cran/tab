@@ -3,7 +3,8 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
                    p.avoid1 = FALSE, basic.form = FALSE, intercept = TRUE, n.id = FALSE, 
                    n.total = FALSE, or = TRUE, robust = TRUE, data = NULL, greek.beta = FALSE,
                    binary.compress = TRUE, bold.colnames = TRUE, bold.varnames = FALSE, 
-                   bold.varlevels = FALSE, predictor.colname = "Variable") {
+                   bold.varlevels = FALSE, predictor.colname = "Variable", print.html = FALSE,
+                   html.filename = "table1.html") {
   
   # If any inputs are not correct class, return error
   if (!all(class(geefit) == c("gee", "glm"))) {
@@ -282,6 +283,15 @@ tabgee <- function(geefit, latex = FALSE, xlabels = NULL, ci.beta = TRUE, decima
     if (bold.varlevels == TRUE) {
       tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1] <- paste("$\\textbf{", tbl[c(1:nrow(tbl))[! c(1:nrow(tbl)) %in% pred], 1], "}$", sep = "")
     }
+  }
+  
+  # Print html version of table if requested
+  if (print.html) {
+    
+    tbl.xtable <- xtable(tbl, align = paste("ll", paste(rep("r", ncol(tbl) - 1), collapse = ""), sep = "", collapse = ""))
+    print(tbl.xtable, include.rownames = FALSE, type = "html", file = html.filename,
+          sanitize.text.function = function(x) {ifelse(substr(x, 1, 1) == " ", paste("&nbsp &nbsp", x), x)})
+    
   }
   
   # Return tbl

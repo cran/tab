@@ -12,7 +12,8 @@ tabmedians(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quantiles = NULL,
            decimals = NULL, p.include = TRUE, p.decimals = c(2, 3), p.cuts = 0.01, 
            p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, 
            overall.column = TRUE, n.column = FALSE, n.headings = TRUE, 
-           bold.colnames = TRUE, bold.varnames = FALSE, variable.colname = "Variable")
+           bold.colnames = TRUE, bold.varnames = FALSE, variable.colname = "Variable", 
+           print.html = FALSE, html.filename = "table1.html")
 }
 \arguments{
   \item{x}{
@@ -37,7 +38,7 @@ If specified, function compares medians of the y variable across quantiles of th
 If TRUE, labels for x show quantile number and corresponding range of the x variable. For example, Q1 [0.00, 0.25). If FALSE, labels for quantiles just show quantile number (e.g. Q1). Only used if xlevels is not specified.
 }
   \item{parenth}{
-Controls what values (if any) are placed in parentheses after the medians in each cell. Possible values are "none", "iqr" for difference between first and third quartiles, "range" for difference between minimum and maximum, "minmax" for minimum and maximum, and "q1q3" for first and third quartiles.
+Controls what values (if any) are placed in parentheses after the medians in each cell. Possible values are "none", "iqr" for difference between first and third quartiles, "range" for difference between minimum and maximum, "minmax" for minimum and maximum, "q1q3" for first and third quartiles, or "ci.90", "ci.95", or "ci.99" for confidence intervals for the medians (based on binomial probabilities if one or more groups have n less than 10, otherwise based on normal approximation to binomial).
 }
   \item{text.label}{
 Optional text to put after the y variable name, identifying what cell values and parentheses indicate in the table. If unspecified, function uses default labels based on parenth, e.g. Median (IQR) if parenth is "iqr". Set to "none" for no text labels.
@@ -84,6 +85,12 @@ If TRUE, variable name in the first column of the table is printed in bold font.
   \item{variable.colname}{
 Character string with desired heading for first column of table, which shows the y variable name.
 }
+  \item{print.html}{
+If TRUE, function prints a .html file to the current working directory.
+}
+  \item{html.filename}{
+Character string indicating the name of the .html file that gets printed if print.html is set to TRUE.
+}
 }
 \details{
 If x has two levels, a Mann-Whitney U (also known as Wilcoxon rank-sum) test is used to test whether the distribution of the continuous variable (y) differs in the two groups (x). If x has more than two levels, a Kruskal-Wallis test is used to test whether the distribution of y differs across at least two of the x groups.
@@ -94,7 +101,7 @@ Both x and y can have missing values. The function drops observations with missi
 A character matrix with the requested table comparing median y across levels of x. If you click on the matrix name under "Data" in the RStudio Workspace tab, you will see a clean table that you can copy and paste into a statistical report or manuscript. If latex is set to TRUE, the character matrix will be formatted for inserting into an Sweave or Knitr report using the xtable package [1].
 }
 \references{
-1. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{http://CRAN.R-project.org/package=xtable}.
+1. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{https://cran.r-project.org/package=xtable}.
 
 Acknowledgment: This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-0940903.
 }
@@ -102,6 +109,8 @@ Acknowledgment: This material is based upon work supported by the National Scien
 Dane R. Van Domelen
 }
 \note{
+In older versions of RStudio, it was easier to copy tables from the Viewer and paste them directly into a text editor. The Viewer changed a few versions ago, and now it seems to work better if you paste into Microsoft Excel, and then copy again and paste into Microsoft Word. This is a little clumsy, so I recently added the new option to print a .html file with the table to your current working directory (see function inputs print.html and html.filename). Copying and pasting from the table from the .html file into a text editor seems to work well.
+
 If you have suggestions for additional options or features, or if you would like some help using any function in the package tab, please e-mail me at vandomed@gmail.com. Thanks!
 }
 \seealso{

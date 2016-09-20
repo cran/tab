@@ -7,7 +7,8 @@ tabmulti <- function(dataset, xvarname, yvarnames, ymeasures = NULL, listwise.de
                      p.decimals = c(2, 3), p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE, 
                      p.avoid1 = FALSE, overall.column = TRUE, n.column = FALSE, n.headings = TRUE, 
                      compress = FALSE, bold.colnames = TRUE, bold.varnames = FALSE, 
-                     bold.varlevels = FALSE, variable.colname = "Variable") {
+                     bold.varlevels = FALSE, variable.colname = "Variable", print.html = FALSE, 
+                     html.filename = "table1.html") {
   
   # If any inputs are not correct class, return error
   if (!is.matrix(dataset) & !is.data.frame(dataset)) {
@@ -208,6 +209,15 @@ tabmulti <- function(dataset, xvarname, yvarnames, ymeasures = NULL, listwise.de
     }
   }
   rownames(results) <- NULL
+  
+  # Print html version of table if requested
+  if (print.html) {
+    
+    results.xtable <- xtable(results, align = paste("ll", paste(rep("r", ncol(results) - 1), collapse = ""), sep = "", collapse = ""))
+    print(results.xtable, include.rownames = FALSE, type = "html", file = html.filename,
+          sanitize.text.function = function(x) {ifelse(substr(x, 1, 1) == " ", paste("&nbsp &nbsp", x), x)})
+    
+  }
   
   # Return results matrix
   return(results)

@@ -12,11 +12,11 @@ Contains functions for generating tables for statistical reports written in Micr
 \tabular{ll}{
 Package: \tab tab\cr
 Type: \tab Package\cr
-Version: \tab 3.1.1\cr
-Date: \tab 2015-02-12\cr
+Version: \tab 3.1.2\cr
+Date: \tab 2016-09-16\cr
 License: \tab GPL-2\cr
 }
-The following functions are included in the package:
+The following functions are included:
 
 \code{\link{tabfreq}},
 \code{\link{tabmeans}},
@@ -38,12 +38,12 @@ Dane R. Van Domelen
 Maintainer: Dane R. Van Domelen <vandomed@gmail.com>
 }
 \references{
-1. Therneau T (2013). A Package for Survival Analysis in S. R package version 2.37-4, \url{http://CRAN.R-project.org/package=survival}.
+1. Therneau T (2013). A Package for Survival Analysis in S. R package version 2.37-4, \url{https://cran.r-project.org/package=survival}.
 
 2. Terry M. Therneau and Patricia M. Grambsch (2000). Modeling Survival Data: Extending the Cox Model.
 Springer, New York. ISBN 0-387-98784-3.
 
-3. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{http://CRAN.R-project.org/package=xtable}.
+3. Dahl DB (2013). xtable: Export tables to LaTeX or HTML. R package version 1.7-1, \url{https://cran.r-project.org/package=xtable}.
 
 Acknowledgment: This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-0940903.
 }
@@ -92,6 +92,9 @@ coxtable <- tabcox(x = d[,c("Age", "Sex", "Race", "Group")], time = d$time,
 
 # Click on freqtable, meanstable, table1, lintable, logtable, or coxtable in 
 # the Workspace tab of RStudio to see the tables that could be copied and pasted 
-# into a Word document. Alternatively, setting the latex input to TRUE produces
-# tables that can be inserted into LaTeX using the xtable package.
+# into a Word document. With newer versions of RStudio, it works better to 
+# set the print.html input to TRUE, and then copy the table from the .html file
+# that prints to your current working directory. Alternatively, setting the latex 
+# input to TRUE produces tables that can be inserted into LaTeX using the xtable 
+# package.
 }

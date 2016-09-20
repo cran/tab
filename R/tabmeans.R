@@ -4,9 +4,10 @@ tabmeans <- function(x, y, latex = FALSE, variance = "unequal", xname = NULL, xl
                      p.decimals = c(2, 3), p.cuts = 0.01, p.lowerbound = 0.001, p.leading0 = TRUE,
                      p.avoid1 = FALSE, overall.column = TRUE, n.column = FALSE, n.headings = TRUE,
                      bold.colnames = TRUE, bold.varnames = FALSE, variable.colname = "Variable", 
-                     fig = FALSE, fig.errorbars = "z.ci") {
+                     fig = FALSE, fig.errorbars = "z.ci", fig.title = NULL, print.html = FALSE,
+                     html.filename = "table1.html") {
   
-  # If yname/xname unspecified, use variable names
+  # If yname or xname unspecified, use variable names
   if (is.null(yname)) {
     yname <- deparse(substitute(y))
     if (grepl("\\$", yname)) {
@@ -193,7 +194,11 @@ tabmeans <- function(x, y, latex = FALSE, variance = "unequal", xname = NULL, xl
       } else if (parenth == "se") {
         text.label <- ", M (SE)"
       } else if (parenth %in% c("t.ci", "z.ci")) {
-        text.label <- ", M (95% CI)"
+        if (latex == TRUE) {
+          text.label <- ", M (95\\% CI)"
+        } else {
+          text.label <- ", M (95% CI)"
+        }
       } else if (parenth == "none") {
         text.label <- ", M"
       }
@@ -323,7 +328,11 @@ tabmeans <- function(x, y, latex = FALSE, variance = "unequal", xname = NULL, xl
       ylim1 <- min(c(lowerbars, upperbars) - 0.1*bar.range)
       ylim2 <- max(c(lowerbars, upperbars) + 0.1*bar.range)
       
-      tbl <- plot(x = NULL, y = NULL, main = paste("Mean ", yname, "by ", xname), 
+      if (is.null(fig.title)) {
+        fig.title <- paste("Mean ", yname, " by ", xname, sep = "")
+      }
+      
+      tbl <- plot(x = NULL, y = NULL, main = fig.title, 
                   xlim = c(0.5, (length(xlevels)+0.5)), ylim = c(ylim1, ylim2), 
                   ylab = ylabel, xlab = xname, xaxt = "n", cex.lab = 1.1)
       
@@ -341,6 +350,15 @@ tabmeans <- function(x, y, latex = FALSE, variance = "unequal", xname = NULL, xl
     }
     
     tbl <- recordPlot()
+    
+  }
+  
+  # Print html version of table if requested
+  if (print.html) {
+    
+    tbl.xtable <- xtable(tbl, align = paste("ll", paste(rep("r", ncol(tbl) - 1), collapse = ""), sep = "", collapse = ""))
+    print(tbl.xtable, include.rownames = FALSE, type = "html", file = html.filename,
+          sanitize.text.function = function(x) {ifelse(substr(x, 1, 1) == " ", paste("&nbsp &nbsp", x), x)})
     
   }
   
