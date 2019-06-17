@@ -1,218 +1,317 @@
-tabmulti.svy <- function(svy, xvarname, yvarnames, ymeasures = NULL, listwise.deletion = FALSE,
-                         latex = FALSE, xlevels = NULL, ynames = yvarnames, ylevels = NULL, 
-                         mean.tests = "Wald", median.tests = "wilcoxon", freq.tests = "F", 
-                         decimals = 1, p.include = TRUE, p.decimals = c(2, 3), p.cuts = 0.01, 
-                         p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n.column = FALSE, 
-                         n.headings = TRUE, se = FALSE, compress = FALSE, parenth = "iqr", 
-                         text.label = NULL, parenth.sep = "-", bold.colnames = TRUE, 
-                         bold.varnames = FALSE, bold.varlevels = FALSE, variable.colname = "Variable") {
-  
-  # If any inputs are not correct class, return error
-  if (!is.character(xvarname)) {
-    stop("For xvarname input, please enter character string with name of column variable")
+#' Create Table Comparing Characteristics Across Levels of a Categorical
+#' Variable (for Complex Survey Data)
+#'
+#' Creates a table comparing multiple characteristics (e.g. median age, mean
+#' BMI, and race/ethnicity distribution) across levels of \code{x}.
+#'
+#' Basically \code{\link{tabmulti}} for complex survey data. Relies heavily on
+#' the \pkg{survey} package.
+#'
+#'
+#' @param formula Formula, e.g. \code{Age + Race + BMI ~ Sex}.
+#' @param design Survey design object from \code{\link[survey]{svydesign}}.
+#' @param xvarname Character string with name of column variable. Should be one
+#' of \code{names(design$variables)}.
+#' @param yvarnames Character vector with names of row variables. Each element
+#' should be one of \code{names(design$variables)}.
+#' @param ymeasures Character vector specifying whether each \code{y} variable
+#' should be summarized by mean, median, or frequency. For example, if you want
+#' to compare frequencies for the first variable, means for the second, and
+#' medians for the third, you would set
+#' \code{ymeasures = c("freq", "mean", "median")}. If unspecified, function
+#' compares means for numeric variables and frequencies for factor and character
+#' variables.
+#' @param columns Character vector specifying what columns to include. Choices
+#' for each element are \code{"n"} for unweighted sample size, \code{"N"} for
+#' weighted sample size, \code{"overall"} for overall statistics,
+#' \code{"xgroups"} for \code{x} group statistics, and \code{"p"} for p-value.
+#' @param listwise.deletion Logical value for whether observations with missing
+#' values for any \code{y} variable should be excluded entirely (as opposed to
+#' using all available data for each comparison).
+#' @param sep.char Character string with separator to place between lower and
+#' upper bound of confidence intervals. Typically \code{"-"} or \code{", "}.
+#' @param xlevels Character vector with labels for the levels of \code{x}, used
+#' in column headings.
+#' @param yvarlabels Named list specifying labels for certain \code{y}
+#' variables. For example, if you want variables named "race" and "age_yrs" to
+#' print as "Race/ethnicity" and "Age (years)", use
+#' \\code{yvarlabels = list(race = "Race/ethnicity", age_yrs = "Age (years)")}.
+#' @param ylevels Character vector (if only 1 frequency comparison) or list of
+#' character vectors with labels for the levels of each categorical \code{y}
+#' variable.
+#' @param indent.spaces Integer value specifying how many spaces to indent
+#' factor levels.
+#' @param latex Logical value for whether to format table so it is
+#' ready for printing in LaTeX via \code{\link[xtable]{xtable}} or
+#' \code{\link[knitr]{kable}}.
+#' @param decimals Numeric vector specifying number of decimal places for
+#' numbers other than p-values for each \code{y} variable. Can be a single value
+#' to use for all \code{y} variables.
+#' @param formatp.list List of arguments to pass to \code{\link[tab]{formatp}}.
+#' @param n.headings Logical value for whether to display unweighted sample
+#' sizes in parentheses in column headings.
+#' @param N.headings Logical value for whether to display weighted sample sizes
+#' in parentheses in column headings.
+#' @param print.html Logical value for whether to write a .html file with the
+#' table to the current working directory.
+#' @param html.filename Character string specifying the name of the .html file
+#' that gets written if \code{print.html = TRUE}.
+#' @param tabmeans.svy.list List of arguments to pass to
+#' \code{\link{tabmeans.svy}}.
+#' @param tabmedians.svy.list List of arguments to pass to
+#' \code{\link{tabmedians.svy}}.
+#' @param tabfreq.svy.list List of arguments to pass to
+#' \code{\link{tabfreq.svy}}.
+#'
+#'
+#' @return Data frame which you can print in R (e.g. with \strong{xtable}'s
+#' \code{\link[xtable]{xtable}} or \strong{knitr}'s \code{\link[knitr]{kable}})
+#' or export to Word, Excel, or some other program. To export the table, set
+#' \code{print.html = TRUE}. This will result in a .html file being written to
+#' your current working directory, which you can open and copy/paste into your
+#' document.
+#'
+#'
+#' @examples
+#' # Create survey design object
+#' library("survey")
+#' design <- svydesign(
+#'   data = tabsvydata,
+#'   ids = ~sdmvpsu,
+#'   strata = ~sdmvstra,
+#'   weights = ~wtmec2yr,
+#'   nest = TRUE
+#' )
+#'
+#' # Compare age, race, and BMI by sex
+#' tabmulti.svy(Age + Race + BMI ~ Sex, design = design) %>% kable()
+#'
+#'
+#' @export
+tabmulti.svy <- function(formula = NULL,
+                         design,
+                         xvarname = NULL,
+                         yvarnames = NULL,
+                         ymeasures = NULL,
+                         columns = c("xgroups", "p"),
+                         listwise.deletion = FALSE,
+                         sep.char = ", ",
+                         xlevels = NULL,
+                         yvarlabels = NULL,
+                         ylevels = NULL,
+                         indent.spaces = 3,
+                         latex = TRUE,
+                         decimals = NULL,
+                         formatp.list = NULL,
+                         n.headings = FALSE,
+                         N.headings = FALSE,
+                         print.html = FALSE,
+                         html.filename = "table1.html",
+                         tabmeans.svy.list = NULL,
+                         tabmedians.svy.list = NULL,
+                         tabfreq.svy.list = NULL) {
+
+  # Error checking
+  if (! is.null(formula) && class(formula) != "formula") {
+    stop("The input 'formula' must be a formula.")
   }
-  if (!all(is.character(yvarnames))) {
-    stop("For yvarnames input, please enter character string or vector of character strings with name(s) of row variable(s)")
+  if (! "survey.design" %in% class(design)) {
+    stop("The input 'design' must be a survey design object.")
   }
-  if (!is.null(ymeasures) && !all(ymeasures %in% c("mean", "median", "freq"))) {
-    stop("For ymeasures input, please enter character string or vector of character strings of same length as yvarnames")
+  if (! is.null(xvarname) && ! xvarname %in% names(design$variables)) {
+    stop("The input 'xvarname' must be a character string matching one of the variables in 'design'.")
   }
-  if (!is.logical(listwise.deletion)) {
-    stop("For listwise.deletion input, please enter TRUE or FALSE")
+  if (! is.null(yvarnames) && ! all(yvarnames %in% names(design$variables))) {
+    stop("Each element of 'yvarnames' must be a character string matching one of the variables in 'design'.")
   }
-  if (!is.logical(latex)) {
-    stop("For latex input, please enter TRUE or FALSE")
+  if (! is.null(ymeasures) && ! all(ymeasures %in% c("freq", "mean", "median"))) {
+    stop("Each element of 'ymeasures' must be one of the following: 'freq', 'mean', 'median'.")
   }
-  if (!is.null(xlevels) && !is.character(xlevels)) {
-    stop("For xlevels input, please enter vector of character strings")
+  if (! all(columns %in% c("n", "N", "overall", "xgroups", "p"))) {
+    stop("Each element of 'columns' must be one of the following: 'n', 'N', 'overall', 'xgroups', 'p'.")
   }
-  if (!all(is.character(ynames))) {
-    stop("For ynames input, please enter character string or vector of character strings of same length as yvarnames")
+  if (! is.logical(listwise.deletion)) {
+    stop("The input 'listwise.deletion' must be a logical.")
   }
-  if (!is.null(ylevels) && !all(unlist(lapply(X = ylevels, FUN = function(x) all(is.character(x)))))) {
-    stop("For ylevels input, please enter vector or list of vectors of character strings")
+  if (! is.character(sep.char)) {
+    stop("The input 'sep.char' must be a character string.")
   }
-  if (!all(mean.tests %in% c("Wald", "LRT"))) {
-    stop("For mean.tests input, please enter character string or vector of character strings specifying whether Wald or 
-          Likelihood Ratio Test statistic should be used for each mean comparison. Each element should be 'Wald' or 'LRT'.")
+  if (! is.null(xlevels) && ! is.character(xlevels)) {
+    stop("The input 'xlevels' must be a character vector.")
   }
-  if (!all(median.tests %in% c("wilcoxon", "vanderWaerden", "median", "KruskalWallis"))) {
-    stop("For median.tests input, please enter character string or vector of character strings indicating what statistical
-         test should be used for each median comparison. Each element should be a possible value for the 'test' input of the 
-         svyranktest function in the survey package: 'wilcoxon', 'vanderWaerden', 'median', or 'KruskalWallis'. See 
-         documentation for tabmedians.svy and svyranktest for details.")
-  }     
-  if (!all(freq.tests %in% c("F", "Chisq", "Wald", "adjWald", "lincom", "saddlepoint"))) {
-    stop("For freq.tests input, please enter character string or vector of character strings indicating what statistical test
-         should be performed for each categorical row variable. Each element should be a possible value for the 'statistic' 
-         input of the svychisq function in the survey package: 'F', 'Chisq', 'Wald', 'adjWald', 'lincom', 
-         or 'saddlepoint'. See svychisq documentation for details.")
+  if (! is.null(ylevels) && ! is.character(ylevels)) {
+    stop("The input 'ylevels' must be a character vector.")
   }
-  if (!is.numeric(decimals)) {
-    stop("For decimals input, please enter numeric value")
+  if (! is.null(indent.spaces) && ! (is.numeric(indent.spaces) && indent.spaces >= 0 && indent.spaces == as.integer(indent.spaces))) {
+    stop("The input 'indent.spaces' must be a non-negative integer.")
   }
-  if (!is.logical(p.include)) {
-    stop("For p.include input, please enter TRUE or FALSE")
+  if (! is.logical(latex)) {
+    stop("The input 'latex' must be a logical.")
   }
-  if (!is.numeric(p.decimals)) {
-    stop("For p.decimals input, please enter numeric value or vector")
+  if (! is.null(decimals) && ! (is.numeric(decimals) && decimals >= 0 &&
+                                decimals == as.integer(decimals))) {
+    stop("The input 'decimals' must be a non-negative integer.")
   }
-  if (!is.numeric(p.cuts)) {  
-    stop("For p.cuts input, please enter numeric value or vector")
+  if (! is.null(formatp.list) &&
+      ! (is.list(formatp.list) && all(names(formatp.list) %in% names(as.list(args(formatp)))))) {
+    stop("The input 'formatp.list' must be a named list of arguments to pass to 'formatp'.")
   }
-  if (!is.numeric(p.lowerbound)) {
-    stop("For p.lowerbound input, please enter numeric value")
+  if (! is.logical(n.headings)) {
+    stop("The input 'n.headings' must be a logical.")
   }
-  if (!is.logical(p.leading0)) {
-    stop("For p.leading0 input, please enter TRUE or FALSE")
+  if (! is.logical(N.headings)) {
+    stop("The input 'N.headings' must be a logical.")
   }
-  if (!is.logical(p.avoid1)) {
-    stop("For p.avoid1 input, please enter TRUE or FALSE")
+  if (! is.logical(print.html)) {
+    stop("The input 'print.html' must be a logical.")
   }
-  if (!is.logical(n.column)) {
-    stop("For n.column input, please enter TRUE or FALSE")
+  if (! is.character("html.filename")) {
+    stop("The input 'html.filename' must be a character string.")
   }
-  if (!is.logical(n.headings)) {
-    stop("For n.headings input, please enter TRUE or FALSE")
+  if (! is.null(tabmeans.svy.list) &&
+      ! (is.list(tabmeans.svy.list) && all(names(tabmeans.svy.list) %in%
+                                       names(as.list(args(tabmeans.svy)))))) {
+    stop("The input 'tabmeans.svy.list' must be a named list of arguments to pass to 'tabmeans.svy'.")
   }
-  if (!is.logical(se)) {
-    stop("For se input, please enter TRUE or FALSE")
+  if (! is.null(tabmedians.svy.list) &&
+      ! (is.list(tabmedians.svy.list) && all(names(tabmedians.svy.list) %in%
+                                         names(as.list(args(tabmedians.svy)))))) {
+    stop("The input 'tabmedians.svy.list' must be a named list of arguments to pass to 'tabmedians.svy'.")
   }
-  if (!is.logical(compress)) {
-    stop("For compress input, please enter TRUE or FALSE")
+  if (! is.null(tabfreq.svy.list) &&
+      ! (is.list(tabfreq.svy.list) && all(names(tabfreq.svy.list) %in%
+                                      names(as.list(args(tabfreq.svy)))))) {
+    stop("The input 'tabfreq.svy.list' must be a named list of arguments to pass to 'tabfreq.svy'.")
   }
-  if (! parenth %in% c("minmax", "range", "q1q3", "iqr", "none")) {
-    stop("For parenth input, please enter one of the following: 'minmax', 'range', 'q1q3', 'iqr', 'none'")
+
+  # Figure out x and y
+  if (! is.null(formula)) {
+    varnames <- all.vars(formula)
+    xvarname <- varnames[length(varnames)]
+    yvarnames <- varnames[-length(varnames)]
   }
-  if (!is.null(text.label) && !is.character(text.label)) {
-    stop("For text.label input, please enter something like 'Median (IQR)' or just leave it unspecified")
+  ynames <- unlist(sapply(yvarnames, function(x) ifelse(x %in% names(yvarlabels), yvarlabels[x], x)))
+
+  # If listwise.deletion is TRUE, drop observations with missing values for
+  # column variable or any row variables
+  if (listwise.deletion){
+    design <- subset(design, complete.cases(design$variables[, c(xvarname, yvarnames)]))
   }
-  if (!is.character(parenth.sep)) {
-    stop("For parenth.sep input, please enter a character string")
-  }
-  if (!is.logical(bold.colnames)) {
-    stop("For bold.colnames input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(bold.varnames)) {
-    stop("For bold.varnames input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(bold.varlevels)) {
-    stop("For bold.varlevels input, please enter TRUE or FALSE")
-  }
-  if (!is.character(variable.colname)) {
-    stop("For variable.colname input, please enter a character string")
-  }
-  
-  # Save xvarname and yvarnames character strings
-  xstring <- xvarname
-  x <- svy$variables[, xstring]
-  
-  # If listwise.deletion is TRUE, drop observations with missing values for column variable or any row variables
-  if (listwise.deletion == TRUE) {
-    
-    # Loop through and find locations of complete data
-    locs <- rep(1, nrow(svy))
-    locs[is.na(x)] <- 0
-    for (ii in 1:length(yvarnames)) {
-      ystring <- yvarnames[ii]
-      y <- svy$variables[, ystring]
-      locs[is.na(y)] <- 0
-    }
-    svy <- subset(svy, locs)
-    
-  }
-  
-  # If ymeasures is single value, create vector of repeat values
-  if (length(ymeasures) == 1) {
-    ymeasures <- rep(ymeasures, length(yvarnames))
-  }
-  
-  # If freq.tests is a single value, create vector of repeat values
-  if (length(freq.tests) == 1) {
-    freq.tests <- rep(freq.tests, length(yvarnames))
-  }
-  
-  # If mean.tests is a single value, create vector of repeat values
-  if (length(mean.tests) == 1) {
-    mean.tests <- rep(mean.tests, length(yvarnames))
-  }
-  
-  # If median.tests is a single value, create vector of repeat values
-  if (length(median.tests) == 1) {
-    median.tests <- rep(median.tests, length(yvarnames))
-  }
-  
-  # If ymeasures is NULL, guess what measures are appropriate based on each variable
+
+  # Create x vector
+  x <- design$variables[, xvarname]
+
+  # Number of y variables
+  num.yvars <- length(yvarnames)
+
+  # If ymeasures is NULL, compare frequencies for factor/character variables and
+  # means for numeric variables
   if (is.null(ymeasures)) {
-    ymeasures <- c()
-    for (ii in 1:length(yvarnames)) {
-      
-      # Save x and y as character strings
-      xstring <- xvarname
-      ystring <- yvarnames[ii]
-      
-      # Extract vectors x and y
-      x <- svy$variables[, xstring]
-      y <- svy$variables[, ystring]
-      
-      # Find indices for non-missing x and y
-      locs <- which(!is.na(x) & !is.na(y))
-      x <- x[locs]
-      y <- y[locs]
-      
-      if (is.factor(y) | length(unique(y)) <= 5) {
-        ymeasures <- c(ymeasures, "freq")
-      } else {
-        ymeasures <- c(ymeasures, "mean")
-      }
-    }
+    ymeasures <- ifelse(sapply(design$variables[, yvarnames], class) == "numeric", "mean", "freq")
+  } else if (length(ymeasures) == 1) {
+    ymeasures <- rep(ymeasures, num.yvars)
   }
-  
+
+  # If decimals is a single value, recycle as needed
+  if (length(decimals) == 1) {
+    decimals <- rep(decimals, num.yvars)
+  }
+
   # If ylevels is a vector, convert to a list
-  if (!is.null(ylevels) && !is.list(ylevels)) {
+  if (! is.null(ylevels) && ! is.list(ylevels)) {
     ylevels <- list(ylevels)
   }
-  
+
   # Call tabmeans.svy, tabmedians.svy, or tabfreq.svy repeatedly
+  mediansindex <- 0
+  meansindex <- 0
   freqindex <- 0
-  meanindex <- 0
-  medianindex <- 0
-  for (ii in 1:length(yvarnames)) {
-    if (ymeasures[ii] == "mean") {
-      meanindex <- meanindex + 1
-      current <- tabmeans.svy(x = xvarname, y = yvarnames[ii], svy = svy, latex = latex, xlevels = xlevels, 
-                              yname = ynames[ii], test = mean.tests[meanindex], decimals = decimals, p.decimals = p.decimals, 
-                              p.cuts = p.cuts, p.lowerbound = p.lowerbound, p.leading0 = p.leading0, p.avoid1 = p.avoid1, 
-                              n.column = n.column, n.headings = n.headings, bold.colnames = bold.colnames, 
-                              bold.varnames = bold.varnames, variable.colname = variable.colname)
-    } else if (ymeasures[ii] == "median") {
-      medianindex <- medianindex + 1
-      current <- tabmedians.svy(x = xvarname, y = yvarnames[ii], svy = svy, latex = latex, xlevels = xlevels, 
-                                yname = ynames[ii], test = median.tests[medianindex], decimals = decimals, p.decimals = p.decimals, 
-                                p.cuts = p.cuts, p.lowerbound = p.lowerbound, p.leading0 = p.leading0, p.avoid1 = p.avoid1, 
-                                n.column = n.column, n.headings = n.headings, parenth = parenth, text.label = text.label,
-                                parenth.sep = parenth.sep, bold.colnames = bold.colnames, bold.varnames = bold.varnames, 
-                                variable.colname = variable.colname)
-    } else if (ymeasures[ii] == "freq") {
+  for (ii in 1: num.yvars) {
+    ymeasures.ii <- ymeasures[ii]
+
+    if (ymeasures.ii == "mean") {
+
+      # Means
+      meansindex <- meansindex + 1
+      args1 <- list(formula = as.formula(paste(yvarnames[ii], " ~ ", xvarname, sep = "")),
+                    design = design,
+                    columns = columns,
+                    sep.char = sep.char,
+                    xlevels = xlevels,
+                    yname = ynames[ii],
+                    decimals = decimals[ii],
+                    formatp.list = formatp.list,
+                    n.headings = n.headings,
+                    N.headings = N.headings)
+      current <- do.call(tabmeans.svy, c(args1, tabmeans.svy.list))
+
+    } else if (ymeasures.ii == "median") {
+
+      # Medians
+      mediansindex <- mediansindex + 1
+      args1 <- list(formula = as.formula(paste(yvarnames[ii], " ~ ", xvarname, sep = "")),
+                    design = design,
+                    columns = columns,
+                    sep.char = sep.char,
+                    xlevels = xlevels,
+                    yname = ynames[ii],
+                    decimals = decimals[ii],
+                    formatp.list = formatp.list,
+                    n.headings = n.headings,
+                    N.headings = N.headings)
+      current <- do.call(tabmedians.svy, c(args1, tabmedians.svy.list))
+
+    } else if (ymeasures.ii == "freq") {
+
+      # Frequencies
       freqindex <- freqindex + 1
-      current <- tabfreq.svy(x = xvarname, y = yvarnames[ii], svy = svy, latex = latex, xlevels = xlevels, 
-                             yname = ynames[ii], ylevels = ylevels[[freqindex]], test = freq.tests[freqindex], 
-                             decimals = decimals, p.decimals = p.decimals, p.cuts = p.cuts, 
-                             p.lowerbound = p.lowerbound, p.leading0 = p.leading0, p.avoid1 = p.avoid1, 
-                             n.column = n.column, n.headings = n.headings, compress = compress, 
-                             bold.colnames = bold.colnames, bold.varnames = bold.varnames, 
-                             variable.colname = variable.colname)
+      args1 <- list(formula = as.formula(paste(yvarnames[ii], " ~ ", xvarname, sep = "")),
+                    design = design,
+                    columns = columns,
+                    sep.char = sep.char,
+                    xlevels = xlevels,
+                    yname = ynames[ii],
+                    ylevels = ylevels[[freqindex]],
+                    latex = FALSE,
+                    decimals = ifelse(is.null(decimals[ii]), 1, decimals[ii]),
+                    formatp.list = formatp.list,
+                    n.headings = n.headings,
+                    N.headings = N.headings)
+      current <- do.call(tabfreq.svy, c(args1, tabfreq.svy.list))
+
     }
-    
+
+    # Add to growing table
     if (ii == 1) {
-      results <- current
+      df <- current
     } else {
-      results <- rbind(results, current)
+      df <- rbind(df, current)
     }
   }
-  rownames(results) <- NULL
-  
-  # Return results matrix
-  return(results)
-  
+
+  # Print html version of table if requested
+  if (print.html) {
+
+    df.xtable <- xtable(
+      df,
+      align = paste("ll", paste(rep("r", ncol(df) - 1), collapse = ""), sep = "", collapse = "")
+    )
+    ampersands <- paste(rep("&nbsp ", indent.spaces), collapse = "")
+    print(df.xtable, include.rownames = FALSE, type = "html",
+          file = html.filename, sanitize.text.function = function(x) {
+            ifelse(substr(x, 1, 1) == " ", paste(ampersands, x), x)
+          })
+
+  }
+
+  # Reformat for latex if requested
+  if (latex) {
+    spaces <- paste(rep(" ", indent.spaces), collapse = "")
+    slashes <- paste(rep("\\ ", indent.spaces), collapse = "")
+    df$Variable <- gsub(pattern = spaces, replacement = slashes, x = df$Variable, fixed = TRUE)
+  }
+
+  # Return table
+  return(df)
+
 }

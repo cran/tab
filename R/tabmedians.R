@@ -1,11 +1,174 @@
-tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quantiles = NULL,
-                       quantile.vals = FALSE, parenth = "iqr", text.label = NULL, parenth.sep = "-",
-                       decimals = NULL, p.include = TRUE, p.decimals = c(2, 3), p.cuts = 0.01, 
-                       p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, 
-                       overall.column = TRUE, n.column = FALSE, n.headings = TRUE, 
-                       bold.colnames = TRUE, bold.varnames = FALSE, variable.colname = "Variable", 
-                       print.html = FALSE, html.filename = "table1.html") {
-  
+#' Create Table Comparing Group Medians
+#'
+#' Creates a table comparing the median of \code{y} across levels of \code{x}.
+#'
+#' If \code{x} has 2 levels, a Mann-Whitney U (also known as Wilcoxon
+#' rank-sum) test is used to test whether the distribution of \code{y} differs
+#' in the two groups; if \code{x} has more than 2 levels, a Kruskal-Wallis test
+#' is used to test whether the distribution of \code{y} differs across at
+#' least two of the groups. Observations with missing values for \code{x} and/or
+#' \code{y} are dropped.
+#'
+#'
+#' @param formula Formula, e.g. \code{BMI ~ Group}.
+#' @param data Data frame containing variables named in \code{formula}.
+#' @param x Vector of values for the categorical \code{x} variable.
+#' @param y Vector of values for the continuous \code{y} variable.
+#' @param columns Character vector specifying what columns to include. Choices
+#' for each element are \code{"n"} for total sample size, \code{"overall"} for
+#' overall median, \code{"xgroups"} for \code{x} group medians, \code{"diff"}
+#' for difference in \code{x} group medians (only available for binary
+#' \code{x}), \code{"test"} for test statistic, and \code{"p"} for p-value.
+#' @param parenth Character string specifying what values are shown in
+#' parentheses after the medians in each cell. Choices are \code{"none"},
+#' \code{"iqr"}, \code{"q1q3"} for first and third quartiles, \code{"range"},
+#' \code{"minmax"}, and \code{"ci"} for 95\% confidence interval for the medians
+#' based on normal approximation to binomial.
+#' @param sep.char Character string with separator to place between lower and
+#' upper bound of confidence intervals. Typically \code{"-"} or \code{", "}.
+#' @param xlevels Character vector with labels for the levels of \code{x}, used
+#' in column headings.
+#' @param yname Character string with a label for the \code{y} variable.
+#' @param text.label Character string with text to put after the \code{y}
+#' variable name, identifying what cell values and parentheses represent.
+#' @param quantiles Numeric value. If specified, table compares \code{y} across
+#' quantiles of \code{x} created on the fly.
+#' @param quantile.vals Logical value for whether labels for \code{x} quantiles
+#' should show quantile number and corresponding range, e.g. Q1 [0.00, 0.25),
+#' rather than just the quantile number.
+#' @param decimals Numeric value specifying number of decimal places for numbers
+#' other than p-values.
+#' @param formatp.list List of arguments to pass to \code{\link[tab]{formatp}}.
+#' @param n.headings Logical value for whether to display group sample sizes in
+#' parentheses in column headings.
+#' @param print.html Logical value for whether to write a .html file with the
+#' table to the current working directory.
+#' @param html.filename Character string specifying the name of the .html file
+#' that gets written if \code{print.html = TRUE}.
+#'
+#'
+#' @return Data frame which you can print in R (e.g. with \strong{xtable}'s
+#' \code{\link[xtable]{xtable}} or \strong{knitr}'s \code{\link[knitr]{kable}})
+#' or export to Word, Excel, or some other program. To export the table, set
+#' \code{print.html = TRUE}. This will result in a .html file being written to
+#' your current working directory, which you can open and copy/paste into your
+#' document.
+#'
+#'
+#' @examples
+#' # Compare median BMI in control group vs. treatment group in sample dataset
+#' (medtable1 <- tabmedians(BMI ~ Group, data = tabdata))
+#'
+#' # Same as previous, but specifying input vectors rather than formula
+#' (medtable2 <- tabmedians(x = tabdata$Group, y = tabdata$BMI))
+#'
+#' # Compare median baseline systolic BP across tertiles of BMI
+#' (medtable3 <- tabmedians(bp.1 ~ BMI, data = tabdata,
+#'                          quantiles = 3, yname = "Systolic BP"))
+#'
+#' # Create single table comparing mean BMI and mean age in control vs.
+#' # treatment group. Drop missing observations first
+#' tabdata2 <- subset(tabdata, ! is.na(BMI) & ! is.na(Age))
+#' (medtable4 <- rbind(tabmeans(BMI ~ Group, data = tabdata2),
+#'                     tabmeans(Age ~ Group, data = tabdata2)))
+#'
+#' # Same as previous, but using tabmulti for convenience
+#' (medtable5 <- tabmulti(data = tabdata, xvarname = "Group",
+#'                        yvarnames = c("BMI", "Age"), ymeasures = "median"))
+#'
+#'
+#' @export
+tabmedians <- function(formula = NULL,
+                       data = NULL,
+                       x = NULL,
+                       y = NULL,
+                       columns = c("xgroups", "p"),
+                       parenth = "iqr",
+                       sep.char = ", ",
+                       xlevels = NULL,
+                       yname = NULL,
+                       text.label = NULL,
+                       quantiles = NULL,
+                       quantile.vals = FALSE,
+                       decimals = NULL,
+                       formatp.list = NULL,
+                       n.headings = TRUE,
+                       print.html = FALSE,
+                       html.filename = "table1.html") {
+
+  # Error checking
+  if (! is.null(formula) && class(formula) != "formula") {
+    stop("The input 'formula' must be a formula.")
+  }
+  if (! is.null(data) && ! is.data.frame(data)) {
+    stop("The input 'data' must be a data frame.")
+  }
+  if (! is.null(y) && ! is.numeric(y)) {
+    stop("The input 'y' must be a numeric vector.")
+  }
+  if (! all(columns %in% c("n", "overall", "xgroups", "diff", "test", "p"))) {
+    stop("Each element of 'columns' must be one of the following: 'n', 'overall', 'xgroups', 'diff', 'test', 'p'.")
+  }
+  if (! parenth %in% c("none", "iqr", "q1q3", "range", "minmax", "ci")) {
+    stop("The input 'parenth' must be one of the following: 'none', 'iqr', 'q1q3', 'range', 'minmax', 'ci'.")
+  }
+  if (! is.character(sep.char)) {
+    stop("The input 'sep.char' must be a character string.")
+  }
+  if (! is.null(xlevels) && ! is.character(xlevels)) {
+    stop("The input 'xlevels' must be a character vector.")
+  }
+  if (! is.null(yname) && ! is.character(yname)) {
+    stop("The input 'yname' must be a character string.")
+  }
+  if (! is.null(text.label) && ! is.character(text.label)) {
+    stop("The input 'text.label' must be a character string.")
+  }
+  if (! is.null(quantiles) && ! (is.numeric(quantiles) && quantiles > 1 &&
+                                 quantiles == as.integer(quantiles))) {
+    stop("The input 'quantiles' must be an integer greater than 1.")
+  }
+  if (! is.logical(quantile.vals)) {
+    stop("The input 'quantile.vals' must be a logical.")
+  }
+  if (! is.null(decimals) && ! (is.numeric(decimals) && decimals >= 0 &&
+                                decimals == as.integer(decimals))) {
+    stop("The input 'decimals' must be a non-negative integer.")
+  }
+  if (! is.null(formatp.list) &&
+      ! (is.list(formatp.list) && all(names(formatp.list) %in%
+                                      names(as.list(args(formatp)))))) {
+    stop("The input 'formatp.list' must be a named list of arguments to pass to 'formatp'.")
+  }
+  if (! is.logical(n.headings)) {
+    stop("The input 'n.headings' must be a logical.")
+  }
+  if (! is.logical(print.html)) {
+    stop("The input 'print.html' must be a logical.")
+  }
+  if (! is.character("html.filename")) {
+    stop("The input 'html.filename' must be a character string.")
+  }
+
+  # If formula specified, figure out x and y
+  if (! is.null(formula)) {
+    varnames <- all.vars(formula)
+    xvarname <- varnames[2]
+    yvarname <- varnames[1]
+    x <- data[, xvarname]
+    y <- data[, yvarname]
+    if (is.null(yname)) {
+      yname <- yvarname
+    }
+  } else {
+    if (is.null(yname)) {
+      yname <- deparse(substitute(y))
+      if (grepl("\\$", yname)) {
+        yname <- strsplit(yname, "\\$")[[1]][2]
+      }
+    }
+  }
+
   # If yname unspecified, use variable name
   if (is.null(yname)) {
     yname <- deparse(substitute(y))
@@ -13,90 +176,32 @@ tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quanti
       yname <- strsplit(yname, "\\$")[[1]][2]
     }
   }
-  
-  # If any inputs are not correct class, return error
-  if (!is.logical(latex)) {
-    stop("For latex input, please enter TRUE or FALSE")
-  }
-  if (!is.null(xlevels) && !is.character(xlevels)) {
-    stop("For xlevels input, please enter vector of character strings")
-  }
-  if (!is.character(yname)) {
-    stop("For yname input, please enter character string")
-  }
-  if (!is.null(quantiles) && ! (is.numeric(quantiles) & length(quantiles) == 1 && quantiles > 1 & quantiles == round(quantiles))) {
-    stop("For quantiles input, please enter a whole number greater than 1")
-  }
-  if (!is.logical(quantile.vals)) {
-    stop("For quantile.vals input, please enter TRUE or FALSE")
-  }
-  if (! parenth %in% c("none", "iqr", "range", "minmax", "q1q3", "ci.90", "ci.95", "ci.99")) {
-    stop("For parenth input, please enter 'none', 'iqr', 'range', 'minmax', 'q1q3', 'ci.90', 'ci.95', or 'ci.99'")
-  }
-  if (!is.null(text.label) && !is.character(text.label)) {
-    stop("For text.label input, please enter a character string or just leave it unspecified. Use 'none' to request no label")
-  }
-  if (!is.character(parenth.sep)) {
-    stop("For parenth.sep input, please enter a character string (only used if parenth is set to 'minmax' or 'q1q3'; usually '-' or ', ')")
-  }
-  if (!is.null(decimals) && !is.numeric(decimals)) {
-    stop("For decimals input, please enter numeric value")
-  }
-  if (!is.logical(p.include)) {
-    stop("For p.include input, please enter TRUE or FALSE")
-  }
-  if (!is.numeric(p.decimals)) {
-    stop("For p.decimals input, please enter numeric value or vector")
-  }
-  if (!is.numeric(p.cuts)) {  
-    stop("For p.cuts input, please enter numeric value or vector")
-  }
-  if (!is.numeric(p.lowerbound)) {
-    stop("For p.lowerbound input, please enter numeric value")
-  }
-  if (!is.logical(p.leading0)) {
-    stop("For p.leading0 input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(p.avoid1)) {
-    stop("For p.avoid1 input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(overall.column)) {
-    stop("For overall.column input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(n.column)) {
-    stop("For n.column input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(n.headings)) {
-    stop("For n.headings input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(bold.colnames)) {
-    stop("For bold.colnames input, please enter TRUE or FALSE")
-  }
-  if (!is.logical(bold.varnames)) {
-    stop("For bold.varnames input, please enter TRUE or FALSE")
-  }
-  if (!is.character(variable.colname)) {
-    stop("For variable.colname input, please enter a character string")
-  }
-  
+
   # Drop missing values
-  locs.complete <- which(!is.na(x) & !is.na(y))
+  locs.complete <- which(! is.na(x) & ! is.na(y))
   x <- x[locs.complete]
   y <- y[locs.complete]
-  
+
   # Create quantiles if necessary
-  if (!is.null(quantiles)) {
-    x <- cut(x = x, breaks = quantile(x, probs = seq(0, 1, 1/quantiles)), include.lowest = TRUE, right = TRUE, dig.lab = 3)
+  if (! is.null(quantiles)) {
+    x <- cut(x = x, breaks = quantile(x, probs = seq(0, 1, 1 / quantiles)),
+             include.lowest = TRUE, right = TRUE, dig.lab = 3)
   }
-  
-  # Get medians and sample sizes
+
+  # Calculate various statistics
   medians <- tapply(X = y, INDEX = x, FUN = median)
   ns <- tapply(X = y, INDEX = x, FUN = length)
-  
-  # If decimals is unspecified, set to appropriate value
+
+  median.y <- median(y)
+  n <- sum(ns)
+
+  xvals <- names(medians)
+  num.groups <- length(medians)
+
+  # If decimals is unspecified, set to a reasonable value
   if (is.null(decimals)) {
     max.median <- max(abs(medians))
-    if (max.median >= 1000) {
+    if (max.median >= 1000 | max.median == 0) {
       decimals <- 0
     } else if (max.median < 1000 & max.median >= 10) {
       decimals <- 1
@@ -112,254 +217,186 @@ tabmedians <- function(x, y, latex = FALSE, xlevels = NULL, yname = NULL, quanti
       decimals <- 6
     }
   }
-  
-  # Convert decimals to variable for sprintf
   spf <- paste("%0.", decimals, "f", sep = "")
-  
-  # Get unique values of x
-  xvals <- sort(unique(x))
-  
+
   # If xlevels unspecified, set to actual values
   if (is.null(xlevels)) {
-    if (!is.null(quantiles)) {
-      if (quantile.vals == TRUE) {
-        xlevels <- paste("Q", 1:length(xvals), " ", as.character(xvals), sep = "")
+    if (! is.null(quantiles)) {
+      if (quantile.vals) {
+        xlevels <- paste("Q", 1: num.groups, " ", xvals, sep = "")
       } else {
-        xlevels <- paste("Q", 1:length(xvals), sep = "")
+        xlevels <- paste("Q", 1: num.groups, sep = "")
       }
     } else {
-      xlevels <- as.character(xvals)
+      xlevels <- xvals
     }
   }
-  
-  # Initialize table
-  tbl <- matrix("", nrow = 1, ncol = length(xlevels) + 4)
-  
-  # Figure out text.label
+
+  # Hypothesis test
+  if (length(xlevels) == 2) {
+
+    # Mann-Whitney U test a.k.a. Wilcoxon rank-sum test
+    fit <- wilcox.test(y ~ x)
+    message(paste("Mann-Whitney U was used to test whether the distribution of ",
+                  yname, " differs in the two groups.", sep = ""))
+    test.stat <- fit$statistic
+    test.label <- "W"
+    p <- fit$p.value
+
+  } else {
+
+    # Kruskal-Wallis rank-sum test
+    fit <- kruskal.test(y ~ as.factor(x))
+    message(paste("Kruskal-Wallis was used to test whether the distribution of ",
+                  yname, " differs across at least two of the groups.",
+                  sep = ""))
+    test.stat <- fit$statistic
+    test.label <- "Chi-sq"
+    p <- fit$p.value
+
+  }
+
+  # Figure out text.label for first column of table
   if (is.null(text.label)) {
-    if (parenth == "iqr") {
+    if (parenth == "none") {
+      text.label <- ", Median"
+    } else if (parenth == "iqr") {
       text.label <- ", Median (IQR)"
-    } else if (parenth == "Range") {
+    } else if (parenth == "range") {
       text.label <- ", Median (range)"
     } else if (parenth == "minmax") {
-      text.label <- ", Median (Min-Max)"
+      text.label <- paste(", Median (min", sep.char, "max)", sep = "")
     } else if (parenth == "q1q3") {
-      text.label <- ", Median (Q1-Q3)"
-    } else if (parenth == "ci.90") {
-      if (latex == TRUE) {
-        text.label <- ", Median (90\\% CI)"
-      } else {
-        text.label <- ", Median (90% CI)"
-      }
-    } else if (parenth == "ci.95") {
-      if (latex == TRUE) {
-        text.label <- ", Median (95\\% CI)"
-      } else {
-        text.label <- ", Median (95% CI)"
-      }
-    } else if (parenth == "ci.99") {
-      if (latex == TRUE) {
-        text.label <- ", Median (99\\% CI)"
-      } else {
-        text.label <- ", Median (99% CI)"
-      }
-    } else if (parenth == "none") {
-      text.label <- ", Median"
+      text.label <- paste(", Median (Q1", sep.char, "Q3)", sep = "")
+    } else if (parenth == "ci") {
+      text.label <- ", Median (95% CI)"
     }
-  } else if (text.label == "none") {
-    text.label <- NULL
-  }
-  
-  # Add variable name and n column to table
-  tbl[1, 1] <- paste(yname, text.label, sep = "")
-  tbl[1, 2] <- sprintf("%.0f", length(y))
-  
-  # Add Median (parenth) overall and in each x group
-  if (parenth == "minmax") {
-    parent1 <- tapply(X = y, INDEX = x, FUN = min)
-    parent2 <- tapply(X = y, INDEX = x, FUN = max)
-    parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-    tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, min(y)), parenth.sep, sprintf(spf, max(y)), ")", sep = "")
-    tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-  } else if (parenth == "range") {
-    parent1 <- tapply(X = y, INDEX = x, FUN = min)
-    parent2 <- tapply(X = y, INDEX = x, FUN = max)
-    parent <- paste(sprintf(spf, parent2 - parent1))
-    tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, max(y) - min(y)), ")", sep = "")
-    tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-  } else if (parenth == "q1q3") {
-    parent1 <- tapply(X = y, INDEX = x, FUN = function(x) quantile(x, probs = 0.25))
-    parent2 <- tapply(X = y, INDEX = x, FUN = function(x) quantile(x, probs = 0.75))
-    parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-    tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, quantile(y, probs = 0.25)), parenth.sep, sprintf(spf, quantile(y, 0.75)), ")", sep = "")
-    tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-  } else if (parenth == "iqr") {
-    parent1 <- tapply(X = y, INDEX = x, FUN = function(x) quantile(x, probs = 0.25))
-    parent2 <- tapply(X = y, INDEX = x, FUN = function(x) quantile(x, probs = 0.75))
-    parent <- paste(sprintf(spf, parent2 - parent1))
-    tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, quantile(y, probs = 0.75) - quantile(y, probs = 0.25)), ")", sep = "")
-    tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-  } else if (parenth == "ci.90") {
-    if (all(ns >= 10)) {
-      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[length(x)/2 - qnorm(p = 0.95)*sqrt(length(x))/2])
-      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[1 + length(x)/2 + qnorm(p = 0.95)*sqrt(length(x))/2])
-      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, sort(y)[length(y)/2 - qnorm(p = 0.95)*sqrt(length(y))/2]), parenth.sep, sprintf(spf, sort(y)[1 + length(y)/2 + qnorm(p = 0.95)*sqrt(length(y))/2]), ")", sep = "")
-      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-    } else {
-      func <- function(x, lower.or.upper) {
-        sorted.vals <- sort(x)
-        n <- length(sorted.vals)
-        probs <- dbinom(x = 0:n, prob = 0.5, size = n)
-        sorted.probs <- sort(probs, decreasing = TRUE)
-        min.prob <- sorted.probs[which(cumsum(sorted.probs) >= 0.9)[1]]
-        ranks <- which(probs >= min.prob)
-        if (lower.or.upper == "lower") {
-          ret <- sorted.vals[ranks[1]]
-        } else if (lower.or.upper == "upper") {
-          ret <- sorted.vals[rev(ranks)[1]]
-        }
-        return(ret)
-      }
-      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "lower"))
-      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "upper"))
-      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, func(y, "lower")), parenth.sep, sprintf(spf, func(y, "upper")), ")", sep = "")
-      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "") 
-    }
-  } else if (parenth == "ci.95") {
-    if (all(ns >= 10)) {
-      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[length(x)/2 - qnorm(p = 0.975)*sqrt(length(x))/2])
-      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[1 + length(x)/2 + qnorm(p = 0.975)*sqrt(length(x))/2])
-      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, sort(y)[length(y)/2 - qnorm(p = 0.975)*sqrt(length(y))/2]), parenth.sep, sprintf(spf, sort(y)[1 + length(y)/2 + qnorm(p = 0.975)*sqrt(length(y))/2]), ")", sep = "")
-      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-    } else {
-      func <- function(x, lower.or.upper) {
-        sorted.vals <- sort(x)
-        n <- length(sorted.vals)
-        probs <- dbinom(x = 0:n, prob = 0.5, size = n)
-        sorted.probs <- sort(probs, decreasing = TRUE)
-        min.prob <- sorted.probs[which(cumsum(sorted.probs) >= 0.95)[1]]
-        ranks <- which(probs >= min.prob)
-        if (lower.or.upper == "lower") {
-          ret <- sorted.vals[ranks[1]]
-        } else if (lower.or.upper == "upper") {
-          ret <- sorted.vals[rev(ranks)[1]]
-        }
-        return(ret)
-      }
-      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "lower"))
-      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "upper"))
-      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, func(y, "lower")), parenth.sep, sprintf(spf, func(y, "upper")), ")", sep = "")
-      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "") 
-    }
-  } else if (parenth == "ci.99") {
-    if (all(ns >= 10)) {
-      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[length(x)/2 - qnorm(p = 0.995)*sqrt(length(x))/2])
-      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) sort(x)[1 + length(x)/2 + qnorm(p = 0.995)*sqrt(length(x))/2])
-      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, sort(y)[length(y)/2 - qnorm(p = 0.995)*sqrt(length(y))/2]), parenth.sep, sprintf(spf, sort(y)[1 + length(y)/2 + qnorm(p = 0.995)*sqrt(length(y))/2]), ")", sep = "")
-      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "")
-    } else {
-      func <- function(x, lower.or.upper) {
-        sorted.vals <- sort(x)
-        n <- length(sorted.vals)
-        probs <- dbinom(x = 0:n, prob = 0.5, size = n)
-        sorted.probs <- sort(probs, decreasing = TRUE)
-        min.prob <- sorted.probs[which(cumsum(sorted.probs) >= 0.99)[1]]
-        ranks <- which(probs >= min.prob)
-        if (lower.or.upper == "lower") {
-          ret <- sorted.vals[ranks[1]]
-        } else if (lower.or.upper == "upper") {
-          ret <- sorted.vals[rev(ranks)[1]]
-        }
-        return(ret)
-      }
-      parent1 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "lower"))
-      parent2 <- tapply(X = y, INDEX = x, FUN = function(x) func(x = x, lower.or.upper = "upper"))
-      parent <- paste(sprintf(spf, parent1), parenth.sep, sprintf(spf, parent2), sep = "")
-      tbl[1, 3] <- paste(sprintf(spf, median(y)), " (", sprintf(spf, func(y, "lower")), parenth.sep, sprintf(spf, func(y, "upper")), ")", sep = "")
-      tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, medians), " (", parent, ")", sep = "") 
-    }
-  }  else if (parenth == "none") {
-    tbl[1, 3] <- sprintf(spf, median(y))
-    tbl[1, 4:(ncol(tbl)-1)] <- sprintf(spf, medians)
-  }
-  
-  # Add p-value from statistical test depending on number of levels of x
-  if (p.include == TRUE) {
-    
-    if (length(xlevels) == 2) {
-      
-      # Mann-Whitney U test a.k.a. Wilcoxon rank-sum test
-      p <- wilcox.test(y ~ x)$p.value
-      
-    } else {
-      
-      # Kruskal-Wallis rank-sum test
-      p <- kruskal.test(y ~ as.factor(x))$p.value
-      
-    }
-    
   } else {
-    p <- NA
+    text.label <- paste(",", text.label)
   }
-  
-  # Add p-value from t-test
-  if (p.include == TRUE) {
-    tbl[1, ncol(tbl)] <- formatp(p = p, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound, leading0 = p.leading0, avoid1 = p.avoid1)
-  }
-  
-  # Add column names, with sample sizes for each group if requested
-  if (n.headings == FALSE) {
-    colnames(tbl) <- c(variable.colname, "N", "Overall", xlevels, "P")
-  } else {
-    colnames(tbl) <- c(variable.colname, "N", paste(c("Overall", xlevels), " (n = ", c(sum(ns), ns), ")", sep = ""), "P")
-  }
-  
-  # Drop N column if requested
-  if (n.column == FALSE) {
-    tbl <- tbl[, -which(colnames(tbl) == "N"), drop = FALSE]
-  }
-  
-  # Drop overall column if requested
-  if (overall.column == FALSE) {
-    tbl <- tbl[, -grep("^Overall", colnames(tbl)), drop = FALSE]
-  }
-  
-  # Drop p column if requested
-  if (p.include == FALSE) {
-    tbl <- tbl[, -which(colnames(tbl) == "P"), drop = FALSE]
-  }
-  
-  # If latex is TRUE, do some re-formatting
-  if (latex == TRUE) {
-    if (p.include == TRUE) {
-      plocs <- which(substr(tbl[, "P"], 1, 1) == "<")
-      if (length(plocs) > 0) {
-        tbl[plocs, "P"] <- paste("$<$", substring(tbl[plocs, "P"], 2), sep = "")
+
+  # Initialize table
+  df <- data.frame(Variable = paste(yname, text.label, sep = ""))
+
+  # Loop through and add columns requested
+  for (column in columns) {
+
+    if (column == "n") {
+
+      df$N <- n
+
+    } else if (column == "overall") {
+
+      if (parenth == "none") {
+        df$Overall <- sprintf(spf, median.y)
+      } else if (parenth == "iqr") {
+        df$Overall <- paste(sprintf(spf, median.y), " (",
+                            sprintf(spf, IQR(y)), ")", sep = "")
+      } else if (parenth == "q1q3") {
+        df$Overall <-
+          paste(sprintf(spf, median.y), " (",
+                sprintf(spf, quantile(y, probs = 0.25)), sep.char,
+                sprintf(spf, quantile(y, probs = 0.75)), ")", sep = "")
+      } else if (parenth == "range") {
+        df$Overall <- paste(sprintf(spf, median.y), " (",
+                            sprintf(spf, diff(range(y))), ")", sep = "")
+      } else if (parenth == "minmax") {
+        df$Overall <- paste(sprintf(spf, median.y), " (",
+                            sprintf(spf, min(y)), sep.char,
+                            sprintf(spf, max(y)), ")", sep = "")
+      } else if (parenth == "ci") {
+
+        zcrit <- qnorm(p = 0.975)
+        sort.y <- sort(y)
+        lower <- sort.y[n / 2 - zcrit * sqrt(n) / 2]
+        upper <- sort.y[1 + n / 2 + zcrit * sqrt(n) / 2]
+        df$Overall <- paste(sprintf(spf, median.y), " (",
+                            sprintf(spf, lower), sep.char,
+                            sprintf(spf, upper), ")", sep = "")
+
       }
+
+    } else if (column == "xgroups") {
+
+      if (parenth == "none") {
+        newcols <- paste(sprintf(spf, medians))
+      } else if (parenth == "iqr") {
+        iqrs <- tapply(X = y, INDEX = x, FUN = IQR)
+        newcols <- paste(sprintf(spf, medians), " (",
+                         sprintf(spf, iqrs), ")", sep = "")
+      } else if (parenth == "q1q3") {
+        q1s <- tapply(X = y, INDEX = x, FUN = function(x) {
+          quantile(x, probs = 0.25)
+        })
+        q3s <- tapply(X = y, INDEX = x, FUN = function(x) {
+          quantile(x, probs = 0.75)
+        })
+        newcols <- paste(sprintf(spf, medians), " (",
+                         sprintf(spf, q1s), sep.char,
+                         sprintf(spf, q3s), ")", sep = "")
+      } else if (parenth == "range") {
+        ranges <- tapply(X = y, INDEX = x, FUN = function(x) diff(range(x)))
+        newcols <- paste(sprintf(spf, medians), " (",
+                         sprintf(spf, ranges), ")", sep = "")
+      } else if (parenth == "minmax") {
+        mins <- tapply(X = y, INDEX = x, FUN = min)
+        maxes <- tapply(X = y, INDEX = x, FUN = max)
+        newcols <- paste(sprintf(spf, medians), " (",
+                         sprintf(spf, mins), sep.char,
+                         sprintf(spf, maxes), ")", sep = "")
+      } else if (parenth == "ci") {
+        zcrit <- qnorm(p = 0.975)
+        lower <- tapply(X = y, INDEX = x, FUN = function(x) {
+          sort(x)[length(x) / 2 - zcrit * sqrt(length(x)) / 2]
+        })
+        upper <- tapply(X = y, INDEX = x, FUN = function(x) {
+          sort(x)[1 + length(x) / 2 + zcrit * sqrt(length(x)) / 2]
+        })
+        newcols <- paste(sprintf(spf, medians), " (",
+                         sprintf(spf, lower), sep.char,
+                         sprintf(spf, upper), ")", sep = "")
+      }
+      names(newcols) <- xlevels
+      df <- cbind(df, do.call(rbind, list(newcols)))
+
+    } else if (column == "diff") {
+
+      df$`Diff.` <- sprintf(spf, -diff(medians))
+
+    } else if (column == "test") {
+
+      newcol <- data.frame(sprintf(spf, test.stat))
+      names(newcol) <- test.label
+      df <- cbind(df, newcol)
+
+    } else if (column == "p") {
+
+      df$P <- do.call(formatp, c(list(p = p), formatp.list))
+
     }
-    if (bold.colnames == TRUE) {
-      colnames(tbl) <- paste("$\\textbf{", colnames(tbl), "}$", sep = "")
-    }
-    if (bold.varnames == TRUE) {
-      tbl[1, 1] <- paste("$\\textbf{", tbl[1, 1], "}$")
-    }
+
   }
-  
+
+  # Add sample sizes to column headings if requested
+  if (n.headings) {
+
+    names(df)[names(df) == "Overall"] <- paste("Overall (n = ", n, ")", sep = "")
+    names(df)[names(df) %in% xlevels] <- paste(xlevels, " (n = ", ns, ")", sep = "")
+
+  }
+
   # Print html version of table if requested
   if (print.html) {
-    
-    tbl.xtable <- xtable(tbl, align = paste("ll", paste(rep("r", ncol(tbl) - 1), collapse = ""), sep = "", collapse = ""))
-    print(tbl.xtable, include.rownames = FALSE, type = "html", file = html.filename,
-          sanitize.text.function = function(x) {ifelse(substr(x, 1, 1) == " ", paste("&nbsp &nbsp", x), x)})
-    
+
+    df.xtable <- xtable(
+      df,
+      align = paste("ll", paste(rep("r", ncol(df) - 1), collapse = ""), sep = "", collapse = "")
+    )
+    print(df.xtable, include.rownames = FALSE, type = "html", file = html.filename)
+
   }
-  
+
   # Return table
-  return(tbl)
-  
+  return(df)
+
 }

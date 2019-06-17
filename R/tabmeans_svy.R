@@ -1,133 +1,363 @@
-tabmeans.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y variable", 
-                         test = "Wald", decimals = 1, p.decimals = c(2, 3), p.cuts = 0.01, 
-                         p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n.column = FALSE,
-                         n.headings = TRUE, bold.colnames = TRUE, bold.varnames = FALSE, 
-                         variable.colname = "Variable") {
-  
-  # If any inputs are not correct class, return error
-  if (!is.logical(latex)) {
-    stop("For latex input, please enter TRUE or FALSE")
+#' Create Table Comparing Group Means (for Complex Survey Data)
+#'
+#' Creates a table comparing the mean of \code{y} across levels of \code{x}.
+#'
+#' Basically \code{\link{tabmeans}} for complex survey data. Relies heavily on
+#' the \pkg{survey} package.
+#'
+#'
+#' @param formula Formula, e.g. \code{BMI ~ Sex}.
+#' @param design Survey design object from \code{\link[survey]{svydesign}}.
+#' @param columns Character vector specifying what columns to include. Choices
+#' for each element are \code{"n"} for total sample size, \code{"overall"} for
+#' overall mean, \code{"xgroups"} for \code{x} group means, \code{"diff"} for
+#' difference in \code{x} group means (this one and the next two are only
+#' available for binary \code{x}), \code{"diffci"} for 95% CI for difference in
+#' \code{x} group means, \code{"diff.ci"} for difference in group means and 95%
+#' confidence interval, and \code{"p"} for p-value.
+#' @param parenth Character string specifying what statistic to display in
+#' parentheses after the means. Choices are \code{"none"}, \code{"sd"},
+#' \code{"se"},  \code{"t.ci"}, \code{"z.ci"}, \code{"range"}, and
+#' \code{"minmax"}.
+#' @param sep.char Character string with separator to place between lower and
+#' upper bound of confidence intervals. Typically \code{"-"} or \code{", "}.
+#' @param xlevels Character vector with labels for the levels of \code{x}, used
+#' in column headings.
+#' @param yname Character string with a label for the \code{y} variable.
+#' @param text.label Character string with text to put after the \code{y}
+#' variable name, identifying what cell values and parentheses represent
+#' @param decimals Numeric value specifying number of decimal places for numbers
+#' other than p-values.
+#' @param anova.svyglm.list List of arguments to pass to
+#' \code{\link[survey]{anova.svyglm}}. Only used if \code{x} has three or more
+#' levels.
+#' @param formatp.list List of arguments to pass to \code{\link[tab]{formatp}}.
+#' @param n.headings Logical value for whether to display group sample sizes in
+#' parentheses in column headings.
+#' @param N.headings Logical value for whether to display weighted sample sizes
+#' in parentheses in column headings.
+#' @param print.html Logical value for whether to write a .html file with the
+#' table to the current working directory.
+#' @param html.filename Character string specifying the name of the .html file
+#' that gets written if \code{print.html = TRUE}.
+#'
+#'
+#' @return Data frame which you can print in R (e.g. with \strong{xtable}'s
+#' \code{\link[xtable]{xtable}} or \strong{knitr}'s \code{\link[knitr]{kable}})
+#' or export to Word, Excel, or some other program. To export the table, set
+#' \code{print.html = TRUE}. This will result in a .html file being written to
+#' your current working directory, which you can open and copy/paste into your
+#' document.
+#'
+#'
+#' @examples
+#' # Create survey design object
+#' library("survey")
+#' design <- svydesign(
+#'   data = tabsvydata,
+#'   ids = ~sdmvpsu,
+#'   strata = ~sdmvstra,
+#'   weights = ~wtmec2yr,
+#'   nest = TRUE
+#' )
+#'
+#' # Compare mean BMI by sex
+#' (meanstable <- tabmeans.svy(BMI ~ Sex, design = design))
+#'
+#'
+#' @export
+tabmeans.svy <- function(formula,
+                         design,
+                         columns = c("xgroups", "p"),
+                         parenth = "sd",
+                         sep.char = ", ",
+                         xlevels = NULL,
+                         yname = NULL,
+                         text.label = NULL,
+                         decimals = 1,
+                         anova.svyglm.list = NULL,
+                         formatp.list = NULL,
+                         n.headings = FALSE,
+                         N.headings = FALSE,
+                         print.html = FALSE,
+                         html.filename = "table1.html") {
+
+  # Error checking
+  if (class(formula) != "formula") {
+    stop("The input 'formula' must be a formula.")
   }
-  if (!is.null(xlevels) && !is.character(xlevels)) {
-    stop("For xlevels input, please enter vector of character strings")
+  if (! "survey.design" %in% class(design)) {
+    stop("The input 'design' must be a survey design object.")
   }
-  if (!is.character(yname)) {
-    stop("For yname input, please enter character string")
+  if (! all(columns %in% c("n", "overall", "xgroups", "diff", "diffci",
+                           "diff.ci", "p"))) {
+    stop("Each element of 'columns' must be one of the following: 'n', 'overall', 'xgroups', 'diff', 'diffci', 'diff.ci', 'p'.")
   }
-  if (! test %in% c("Wald", "LRT")) {
-    stop("For test input, please enter 'Wald' or 'LRT'")
+  if (! parenth %in% c("none", "sd", "se", "t.ci", "z.ci", "range", "minmax")) {
+    stop("The input 'parenth' must be one of the following: 'none', 'sd', 'se', 't.ci', 'z.ci', 'range', 'minmax'.")
   }
-  if (!is.numeric(decimals)) {
-    stop("For decimals input, please enter numeric value")
+  if (! is.character(sep.char)) {
+    stop("The input 'sep.char' must be a character string.")
   }
-  if (!is.numeric(p.decimals)) {
-    stop("For p.decimals input, please enter numeric value or vector")
+  if (! is.null(xlevels) && ! is.character(xlevels)) {
+    stop("The input 'xlevels' must be a character vector.")
   }
-  if (!is.numeric(p.cuts)) {  
-    stop("For p.cuts input, please enter numeric value or vector")
+  if (! is.null(yname) && ! is.character(yname)) {
+    stop("The input 'yname' must be a character string.")
   }
-  if (!is.numeric(p.lowerbound)) {
-    stop("For p.lowerbound input, please enter numeric value")
+  if (! is.null(text.label) && ! is.character(text.label)) {
+    stop("The input 'text.label' must be a character string.")
   }
-  if (!is.logical(p.leading0)) {
-    stop("For p.leading0 input, please enter TRUE or FALSE")
+  if (! is.null(decimals) && ! (is.numeric(decimals) && decimals >= 0 &&
+                                decimals == as.integer(decimals))) {
+    stop("The input 'decimals' must be a non-negative integer.")
   }
-  if (!is.logical(p.avoid1)) {
-    stop("For p.avoid1 input, please enter TRUE or FALSE")
+  if (! is.null(formatp.list) &&
+      ! (is.list(formatp.list) && all(names(formatp.list) %in%
+                                      names(as.list(args(formatp)))))) {
+    stop("The input 'formatp.list' must be a named list of arguments to pass to 'formatp'.")
   }
-  if (!is.logical(n.column)) {
-    stop("For n.column input, please enter TRUE or FALSE")
+  if (! is.logical(n.headings)) {
+    stop("The input 'n.headings' must be a logical.")
   }
-  if (!is.logical(n.headings)) {
-    stop("For n.headings input, please enter TRUE or FALSE")
+  if (! is.logical(N.headings)) {
+    stop("The input 'N.headings' must be a logical.")
   }
-  if (!is.logical(bold.colnames)) {
-    stop("For bold.colnames input, please enter TRUE or FALSE")
+  if (! is.logical(print.html)) {
+    stop("The input 'print.html' must be a logical.")
   }
-  if (!is.logical(bold.varnames)) {
-    stop("For bold.varnames input, please enter TRUE or FALSE")
+  if (! is.character("html.filename")) {
+    stop("The input 'html.filename' must be a character string.")
   }
-  if (!is.character(variable.colname)) {
-    stop("For variable.colname input, please enter a character string")
-  }
-  
-  # Convert decimals to variable for sprintf
-  spf <- paste("%0.", decimals, "f", sep = "")
-  
-  # Save x and y as character strings
-  xstring <- x
-  ystring <- y
-  
-  # Extract vectors x and y
-  x <- svy$variables[, xstring]
-  y <- svy$variables[, ystring]
-  
-  # Update survey object to include y and x explicitly
-  svy2 <- update(svy, y = y, x = x)
-  
-  # Drop missing values if present
-  locs <- which(!is.na(x) & !is.na(y))
-  if (length(locs) < nrow(svy2)) {
-    svy2 <- subset(svy2, !is.na(x) & !is.na(y))
-    x <- svy2$variables[, xstring]
-    y <- svy2$variables[, ystring]
-  }
-  
-  # Get unique values of x
-  xvals <- sort(unique(x))
-  
+
+  # Get variable names etc.
+  varnames <- all.vars(formula)
+  xvarname <- varnames[2]
+  yvarname <- varnames[1]
+  if (is.null(yname)) yname <- yvarname
+
+  # Drop missing values
+  design <- subset(design, complete.cases(design$variables[, c(xvarname, yvarname)]))
+  # design <- eval(parse(text = paste("subset(design, ! is.na(", xvarname, ") & ! is.na(", yvarname, "))", sep = "")))
+  # design <- eval(str2expression(paste("subset(design, ! is.na(", xvarname, ") & ! is.na(", yvarname, "))", sep = "")))
+
+  # Extract x and y values
+  x <- design$variables[, xvarname]
+  y <- design$variables[, yvarname]
+
+  # Calculate various statistics
+  svyby.svymean <- svyby(as.formula(paste("~", yvarname, sep = "")),
+                         by = as.formula(paste("~", xvarname, sep = "")),
+                         design = design, FUN = svymean)
+  means <- svyby.svymean[[yvarname]]
+  ses <- svyby.svymean$se
+  ns <- table(x)
+
+  xvals <- names(ns)
+  num.groups <- length(xvals)
+
   # If xlevels unspecified, set to actual values
-  if (is.null(xlevels)) {
-    xlevels <- xvals
+  if (is.null(xlevels)) xlevels <- xvals
+
+  # If decimals is unspecified, set to a reasonable value
+  if (is.null(decimals)) {
+    max.mean <- max(abs(means))
+    if (max.mean >= 1000) {
+      decimals <- 0
+    } else if (max.mean < 1000 & max.mean >= 10) {
+      decimals <- 1
+    } else if (max.mean < 10 & max.mean >= 0.1) {
+      decimals <- 2
+    } else if (max.mean < 0.1 & max.mean >= 0.01) {
+      decimals <- 3
+    } else if (max.mean < 0.01 & max.mean >= 0.001) {
+      decimals <- 4
+    } else if (max.mean < 0.001 & max.mean >= 0.0001) {
+      decimals <- 5
+    } else if (max.mean < 0.0001) {
+      decimals <- 6
+    }
   }
-  
-  # Initialize table
-  tbl <- matrix("", nrow = 1, ncol = length(xlevels) + 4)
-  
-  # Get means and SE's overall and by levels of x, and get sample size in each x
-  totmean <- svymean(y, design = svy2)
-  means <- svyby(~y, by = ~x, FUN = svymean, design = svy2)
-  ns <- tapply(X = y, INDEX = x, FUN = length)
-  
-  # Add mean (SE) values to table
-  tbl[1, 1] <- paste(yname, ", M (SE)", sep = "")
-  tbl[1, 2] <- sprintf("%.0f", sum(ns))
-  tbl[1, 3] <- paste(sprintf(spf, totmean), " (", sprintf(spf, sqrt(attr(totmean, "var"))), ")", sep = "")
-  tbl[1, 4:(ncol(tbl)-1)] <- paste(sprintf(spf, means$"y"), " (", sprintf(spf, means$"se"), ")", sep = "")
-  
-  # ANOVA
-  fit1 <- svyglm(y ~ 1, design = svy2)
-  fit2 <- svyglm(y ~ as.factor(x), design = svy2)
-  pval <- anova(fit1, fit2, method = test)$p
-  tbl[1, ncol(tbl)] <- formatp(p = pval, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound, leading0 = p.leading0, avoid1 = p.avoid1)
-  
-  # Add column names, with sample sizes for each group if requested
-  if (n.headings == FALSE) {
-    colnames(tbl) <- c(variable.colname, "N", "Overall", xlevels, "P")
+  spf <- paste("%0.", decimals, "f", sep = "")
+
+  # Hypothesis test
+  if (num.groups == 2) {
+    fit <- svyttest(formula, design = design)
+    diffmeans <- -fit$estimate
+    diffmeans.ci <- -rev(as.numeric(fit$conf.int))
+    p <- fit$p.value
   } else {
-    colnames(tbl) <- c(variable.colname, "N", paste(c("Overall", xlevels), " (n = ", c(sum(ns), ns), ")", sep = ""), "P")
+    fit1 <- svyglm(Age ~ 1, design = design)
+    fit2 <- svyglm(Age ~ Sex, design = design)
+    fit <- do.call(anova, c(list(object = fit1, object2 = fit2), anova.svyglm.list))
+    p <- as.numeric(fit$p)
   }
-  
-  # Drop N column if requested
-  if (n.column == FALSE) {
-    tbl <- tbl[, -which(colnames(tbl) == "N"), drop = FALSE]
+
+  # Figure out text.label for first column of table
+  if (is.null(text.label)) {
+    if (parenth == "none") {
+      text.label <- "M"
+    } else if (parenth == "sd") {
+      text.label <- ", M (SD)"
+    } else if (parenth == "se") {
+      text.label <- ", M (SE)"
+    } else if (parenth %in% c("t.ci", "z.ci")) {
+      text.label <- ", M (95% CI)"
+    } else if (parenth == "range") {
+      text.label <- ", M (range)"
+    } else if (parenth == "minmax") {
+      text.label <- paste(", M (min", sep.char, "max)", sep = "")
+    }
+  } else {
+    text.label <- paste(",", text.label)
   }
-  
-  # If latex is TRUE, do some re-formatting
-  if (latex == TRUE) {
-    plocs <- which(substr(tbl[, "P"], 1, 1) == "<")
-    if (length(plocs) > 0) {
-      tbl[plocs, "P"] <- paste("$<$", substring(tbl[plocs, "P"], 2), sep = "")
+
+  # Initialize table
+  df <- data.frame(Variable = paste(yname, text.label, sep = ""))
+
+  # Loop through and add columns requested
+  for (column in columns) {
+
+    if (column == "n") {
+
+      df$N <- sum(ns)
+
+    } else if (column == "overall") {
+
+      svymean.overall <- svymean(as.formula(paste("~", yvarname, sep = "")),
+                                 design = design)
+      mean.y <- svymean.overall[[yvarname]]
+      se.y <- sqrt(attr(svymean.overall, "var"))
+
+      if (parenth == "none") {
+        df$Overall <- sprintf(spf, mean.y)
+      } else if (parenth == "sd") {
+        sd.y <- sqrt(svyvar(as.formula(paste("~", yvarname, sep = "")),
+                            design = design)[[yvarname]])
+        df$Overall <- paste(sprintf(spf, mean.y), " (",
+                            sprintf(spf, sd.y), ")", sep = "")
+      } else if (parenth == "se") {
+        df$Overall <- paste(sprintf(spf, mean.y), " (",
+                            sprintf(spf, se.y), ")", sep = "")
+      } else if (parenth == "t.ci") {
+        ttest.overall <- svyttest(as.formula(paste(yvarname, "~ 1", sep = "")), design = design)
+        tcrit <- qt(p = 0.975, df = ttest.overall$parameter)
+        df$Overall <- paste(sprintf(spf, mean.y), " (",
+                            sprintf(spf, mean.y - tcrit * se.y), sep.char,
+                            sprintf(spf, mean.y + tcrit * se.y), ")", sep = "")
+      } else if (parenth == "z.ci") {
+        zcrit <- qnorm(p = 0.975)
+        df$Overall <- paste(sprintf(spf, mean.y), " (",
+                            sprintf(spf, mean.y - zcrit * se.y), sep.char,
+                            sprintf(spf, mean.y + zcrit * se.y), ")", sep = "")
+      } else if (parenth == "range") {
+        spf.r <- ifelse(all(round(y, 0) == y), "%0.0f", spf)
+        df$Overall <- paste(sprintf(spf, mean.y), " (",
+                            sprintf(spf.r, diff(range(y))), ")", sep = "")
+      } else if (parenth == "minmax") {
+        spf.r <- ifelse(all(round(y, 0) == y), "%0.0f", spf)
+        df$Overall <- paste(sprintf(spf, mean.y), " (",
+                            sprintf(spf.r, min(y)), sep.char,
+                            sprintf(spf.r, max(y)), ")", sep = "")
+      }
+
+    } else if (column == "xgroups") {
+
+      if (parenth == "none") {
+        newcols <- paste(sprintf(spf, means))
+      } else if (parenth == "sd") {
+        sds <- sqrt(svyby(as.formula(paste("~", yvarname, sep = "")),
+                          by = as.formula(paste("~", xvarname, sep = "")),
+                          design = design, FUN = svyvar)[[yvarname]])
+        newcols <- paste(sprintf(spf, means), " (",
+                         sprintf(spf, sds), ")", sep = "")
+      } else if (parenth == "se") {
+        newcols <- paste(sprintf(spf, means), " (",
+                         sprintf(spf, ses), ")", sep = "")
+      } else if (parenth == "t.ci") {
+        ttests <- lapply(X = xvals, FUN = function(x) {
+          svyttest(as.formula(paste(yvarname, "~ 1", sep = "")),
+                   design = subset(design, design$variables[, xvarname] == x))
+        })
+        # ttests <- lapply(X = xvals, FUN = function(x) {
+        #   svyttest(as.formula(paste(yvarname, "~ 1", sep = "")),
+        #            design = eval(parse(text = paste("subset(design, ", xvarname, " == '", x, "')", sep = ""))))
+        # })
+        # ttests <- lapply(X = xvals, FUN = function(x) {
+        #   svyttest(as.formula(paste(yvarname, "~ 1", sep = "")),
+        #            design = eval(str2expression(paste("subset(design, ", xvarname, " == '", x, "')", sep = ""))))
+        # })
+        tcrits <- qt(p = 0.975, df = sapply(ttests, function(x) x$parameter))
+        newcols <- paste(sprintf(spf, means), " (",
+                         sprintf(spf, means - tcrits * ses), sep.char,
+                         sprintf(spf, means + tcrits * ses), ")", sep = "")
+      } else if (parenth == "z.ci") {
+        zcrit <- qnorm(p = 0.975)
+        newcols <- paste(sprintf(spf, means), " (",
+                         sprintf(spf, means - zcrit * ses), sep.char,
+                         sprintf(spf, means + zcrit * ses), ")", sep = "")
+      } else if (parenth == "range") {
+        spf.r <- ifelse(all(round(y, 0) == y), "%0.0f", spf)
+        ranges <- tapply(X = y, INDEX = x, FUN = function(x) diff(range(x)))
+        newcols <- paste(sprintf(spf, means), " (",
+                         sprintf(spf.r, ranges), ")", sep = "")
+      } else if (parenth == "minmax") {
+        spf.r <- ifelse(all(round(y, 0) == y), "%0.0f", spf)
+        mins <- tapply(X = y, INDEX = x, FUN = min)
+        maxes <- tapply(X = y, INDEX = x, FUN = max)
+        newcols <- paste(sprintf(spf, means), " (",
+                         sprintf(spf.r, mins), sep.char,
+                         sprintf(spf.r, maxes), ")", sep = "")
+      }
+      names(newcols) <- xlevels
+      df <- cbind(df, do.call(rbind, list(newcols)))
+
+    } else if (column == "diff") {
+
+      df$`Diff.` <- sprintf(spf, diffmeans)
+
+    } else if (column == "diffci") {
+
+      df$`95% CI for Diff.` <- paste(sprintf(spf, diffmeans.ci[1]), sep.char,
+                                     sprintf(spf, diffmeans.ci[2]), sep = "")
+
+    } else if (column == "diff.ci") {
+
+      df$`Diff. (95% CI)` <- paste(sprintf(spf, diffmeans), " (",
+                                   sprintf(spf, diffmeans.ci[1]), sep.char,
+                                   sprintf(spf, diffmeans.ci[2]), ")", sep = "")
+
+    } else if (column == "p") {
+
+      df$P <- do.call(formatp, c(list(p = p), formatp.list))
+
     }
-    if (bold.colnames == TRUE) {
-      colnames(tbl) <- paste("$\\textbf{", colnames(tbl), "}$", sep = "")
-    }
-    if (bold.varnames == TRUE) {
-      tbl[1, 1] <- paste("$\\textbf{", tbl[1, 1], "}$")
-    }
+
   }
-  
+
+  # Add sample sizes to column headings if requested
+  if (n.headings) {
+    names(df)[names(df) == "Overall"] <- paste("Overall (n = ", sum(ns), ")", sep = "")
+    names(df)[names(df) %in% xlevels] <- paste(xlevels, " (n = ", ns, ")", sep = "")
+  }
+  if (N.headings) {
+    Ns <- svytable(as.formula(paste("~", xvarname, sep = "")), design = design)
+    names(df)[names(df) == "Overall"] <- paste("Overall (N = ", sum(Ns), ")", sep = "")
+    names(df)[names(df) %in% xlevels] <- paste(xlevels, " (N = ", Ns, ")", sep = "")
+  }
+
+  # Print html version of table if requested
+  if (print.html) {
+
+    df.xtable <- xtable(
+      df,
+      align = paste("ll", paste(rep("r", ncol(df) - 1), collapse = ""), sep = "", collapse = "")
+    )
+    print(df.xtable, include.rownames = FALSE, type = "html", file = html.filename)
+
+  }
+
   # Return table
-  return(tbl)
-  
+  return(df)
+
 }

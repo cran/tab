@@ -1,22 +1,14 @@
-#' Create Summary Table for Fitted Generalized Estimating Equation Model
+#' Create Summary Table for Fitted Cox Proportional Hazards Model
 #'
-#' Creates a table summarizing a GEE fit using the \code{\link[gee]{gee}}
+#' Creates a table summarizing a GEE fit using the \code{\link[survival]{coxph}}
 #' function.
 #'
 #'
-#' @param fit Fitted \code{\link[gee]{gee}} object.
-#' @param data Data frame that served as 'data' in function call to
-#' \code{\link[gee]{gee}}. Only needs to be specified if one or more of the
-#' predictors is a factor and \code{factor.compression} is 1, 2, 3, or 4.
-#' @param columns Character vector specifying what columns to include. Choices
-#' for each element are \code{"beta"}, \code{"se"}, \code{"betaci"} for 95\% CI
-#' for Beta, \code{"beta.se"} for Beta (SE), \code{"beta.ci"} for Beta
-#' (95\% CI), \code{"or"}, \code{"orci"} for 95\% CI for OR, \code{"or.ci"} for
-#' OR (95\% CI), \code{"hr"}, \code{"hrci"} for 95\% CI for HR, \code{"hr.ci"}
-#' for HR (95\% CI), \code{"z"} for z statistic, and \code{"p"}. If OR's or HR's
-#' are requested, the function will trust that exponentiated betas correspond to
-#' these quantities.
-#' @param robust Logical value for whether to use robust standard errors.
+#' @param fit Fitted \code{\link[survival]{coxph}} object.
+#' @param columns Character vector specifying what columns to include. Choies
+#' for each element are \code{"events"}, \code{"beta"}, \code{"se"},
+#' \code{"beta.se"}, \code{"beta.betaci"}, \code{"betaci"}, \code{"hr"},
+#' \code{"hr.hrci"}, \code{"hrci"}, \code{"z"}, and \code{"p"}.
 #' @param var.labels Named list specifying labels to use for certain predictors.
 #' For example, if \code{fit} includes a predictor named "race"
 #' that you want to label "Race/ethnicity" and a predictor named "age_yrs" that
@@ -53,65 +45,58 @@
 #'
 #'
 #' @examples
-#' # Load in sample dataset and convert to long format
-#' data(tabdata)
-#' tabdata2 <- reshape(data = tabdata,
-#'                     varying = c("bp.1", "bp.2", "bp.3", "highbp.1",
-#'                                 "highbp.2", "highbp.3"),
-#'                     timevar = "bp.visit", direction = "long")
-#' tabdata2 <- tabdata2[order(tabdata2$id), ]
-#'
-#' # Blood pressure at 1, 2, and 3 months vs. age, sex, race, and treatment
-#' library("gee")
-#' fit <- gee(bp ~ Age + Sex + Race + Group, id = id, data = tabdata2,
-#'            corstr = "unstructured")
-#' kable(tabgee(fit, data = tabdata2))
+#' # Cox PH model with age, sex, race, and treatment
+#' library("survival")
+#' fit <- coxph(Surv(time = time, event = delta) ~ Age + Sex + Race + Group,
+#'              data = tabdata)
+#' kable(tabcoxph(fit))
 #'
 #' # Can also use piping
-#' fit %>% tabgee(data = tabdata2) %>% kable()
+#' fit %>% tabcoxph() %>% kable()
 #'
 #' # Same as previous, but with custom labels for Age and Race and factors
 #' # displayed in slightly more compressed format
 #' fit %>%
-#'   tabgee(data = tabdata2,
-#'          var.labels = list(Age = "Age (years)", Race = "Race/ethnicity"),
-#'          factor.compression = 2) %>%
-#'   kable()
+#'   tabcoxph(var.labels = list(Age = "Age (years)", Race = "Race/ethnicity"),
+#'            factor.compression = 2) %>%
+#'            kable()
 #'
-#' # GEE with some higher-order terms
-#' # higher-order terms
-#' fit <- gee(highbp ~ poly(Age, 2, raw = TRUE) + Sex + Race + Group + Race*Group,
-#'            id = id, data = tabdata2, family = "binomial", corstr = "unstructured")
-#' fit %>% tabgee(data = tabdata2) %>% kable()
+#' # Cox PH model with some higher-order terms
+#' fit <- coxph(Surv(time = time, event = delta) ~
+#'              poly(Age, 2, raw = TRUE) + Sex + Race + Group + Race*Group,
+#'              data = tabdata)
+#' fit %>% tabcoxph() %>% kable()
+#'
+#'
+#' @references
+#' 1. Therneau, T. (2015). A Package for Survival Analysis in S. R package
+#' version 2.38. \url{https://cran.r-project.org/package=survival}.
+#'
+#' 2. Therneau, T.M. and Grambsch, P.M. (2000). Modeling Survival Data:
+#' Extending the Cox Model. Springer, New York. ISBN 0-387-98784-3.
 #'
 #'
 #'@export
-tabgee <- function(fit,
-                   data = NULL,
-                   columns = NULL,
-                   robust = TRUE,
-                   var.labels = NULL,
-                   factor.compression = 1,
-                   sep.char = ", ",
-                   indent.spaces = 3,
-                   latex = TRUE,
-                   decimals = 2,
-                   formatp.list = NULL,
-                   print.html = FALSE,
-                   html.filename = "table1.html") {
+tabcoxph <- function(fit,
+                     columns = c("beta.se", "hr.ci", "p"),
+                     var.labels = NULL,
+                     factor.compression = 1,
+                     sep.char = ", ",
+                     indent.spaces = 3,
+                     latex = TRUE,
+                     decimals = 2,
+                     formatp.list = NULL,
+                     print.html = FALSE,
+                     html.filename = "table1.html") {
 
   # Error checking
-  if (! "gee" %in% class(fit)) {
-    stop("The input 'fit' must be a fitted 'gee'.")
+  if (! "coxph" %in% class(fit)) {
+    stop("The input 'fit' must be a fitted 'coxph'.")
   }
   if (! is.null(columns) &&
       ! all(columns %in% c("beta", "se", "betaci", "beta.se", "beta.ci", "or",
-                           "orci", "or.ci", "hr", "hrci", "hr.ci", "z",
-                           "p"))) {
-    stop("Each element of 'columns' must be one of the following: 'beta', 'se', 'betaci', 'beta.se', 'beta.ci', 'or', 'orci', 'or.ci', 'hr', 'hrci', 'hr.ci', 'z', 'p'.")
-  }
-  if (! is.logical(robust)) {
-    stop("The input 'robust' must be a logical.")
+                           "hr", "hrci", "hr.ci", "z", "p"))) {
+    stop("Each element of 'columns' must be one of the following: 'beta', 'se', 'betaci', 'beta.se', 'beta.ci', 'hr', 'hrci', 'hr.ci', 'z', 'p'.")
   }
   if (! factor.compression %in% 1: 5) {
     stop("The input 'factor.compression' must be set to 1, 2, 3, 4, or 5.")
@@ -145,32 +130,14 @@ tabgee <- function(fit,
   invisible(capture.output(summary.fit <- summary(fit)))
   coefmat <- summary.fit$coefficients
   rownames.coefmat <- rownames(coefmat)
-  betas <- coefmat[, "Estimate"]
-  if (robust) {
-    ses <- coefmat[, "Robust S.E."]
-  } else {
-    ses <- coefmat[, "Naive S.E."]
-  }
-  lower <- betas - qnorm(0.975) * ses
-  upper <- betas + qnorm(0.975) * ses
-  zs <- betas / ses
-  ps <- pnorm(-abs(zs)) * 2
-  intercept <- attr(fit$terms, "intercept") == 1
-
-  # If columns unspecified, figure out reasonable defaults
-  if (is.null(columns)) {
-
-    gee.family <- fit$family$family
-    gee.link <- fit$family$link
-    if (gee.family == "binomial" & gee.link == "logit") {
-      columns <- c("beta.se", "or.ci", "p")
-    } else if (gee.family == "poisson" & gee.link == "log") {
-      columns <- c("beta.se", "hr.ci", "p")
-    } else {
-      columns <- c("beta.se", "betaci", "p")
-    }
-
-  }
+  betas <- coefmat[, "coef"]
+  hrs <- coefmat[, "exp(coef)"]
+  ses <- coefmat[, "se(coef)"]
+  zs <- coefmat[, "z"]
+  ps <- coefmat[, "Pr(>|z|)"]
+  confint.fit <- confint(fit)
+  lower <- confint.fit[, 1]
+  upper <- confint.fit[, 2]
 
   # Convert decimals to variable for sprintf
   spf <- paste("%0.", decimals, "f", sep = "")
@@ -205,25 +172,7 @@ tabgee <- function(fit,
                                   sprintf(spf, lower), sep.char,
                                   sprintf(spf, upper), ")", sep = "")
 
-    } else if (column == "or") {
-
-      df$`OR` <- sprintf(spf, exp(betas))
-      if (intercept) df$`OR`[1] <- "-"
-
-    } else if (column == "orci") {
-
-      df$`95% CI` <- paste("(", sprintf(spf, exp(lower)), sep.char,
-                           sprintf(spf, exp(upper)), ")", sep = "")
-      if (intercept) df$`95% CI`[1] <- "-"
-
-    } else if (column == "or.ci") {
-
-      df$`OR (95% CI)` <- paste(sprintf(spf, exp(betas)), " (",
-                                sprintf(spf, exp(lower)), sep.char,
-                                sprintf(spf, exp(upper)), ")", sep = "")
-      if (intercept) df$`OR (95% CI)`[1] <- "-"
-
-    } else if (column == "hr") {
+    }  else if (column == "hr") {
 
       df$`HR` <- sprintf(spf, exp(betas))
 
@@ -231,14 +180,12 @@ tabgee <- function(fit,
 
       df$`95% CI` <- paste("(", sprintf(spf, exp(lower)), sep.char,
                            sprintf(spf, exp(upper)), ")", sep = "")
-      if (intercept) df$`95% CI`[1] <- "-"
 
     } else if (column == "hr.ci") {
 
       df$`HR (95% CI)` <- paste(sprintf(spf, exp(betas)), " (",
                                 sprintf(spf, exp(lower)), sep.char,
                                 sprintf(spf, exp(upper)), ")", sep = "")
-      if (intercept) df$`HR (95% CI)`[1] <- "-"
 
     } else if (column == "z") {
 
@@ -252,29 +199,17 @@ tabgee <- function(fit,
 
   }
 
-  # Remove parentheses around intercept
-  if (intercept) df$Variable[1] <- "Intercept"
-
-  # If data is unspecified, use highest possible factor compression
-  if (is.null(data)) {
-    if (factor.compression != 5) {
-      message("Changed 'factor.compression' from ", factor.compression, " to 5 because 'data' is unspecified.")
-      factor.compression <- 5
-    }
-  }
-
   # Clean up factor variables
   spaces <- paste(rep(" ", indent.spaces), collapse = "")
-  dataClasses <- attr(fit$terms, "dataClasses")
-  factors <- names(dataClasses[dataClasses == "factor"])
-  if (length(factors) > 0) {
-
-    for (varname.ii in factors) {
+  xlevels <- fit$xlevels
+  if (length(xlevels) > 0) {
+    for (ii in 1: length(xlevels)) {
+      varname.ii <- names(xlevels)[ii]
+      levels.ii <- xlevels[[ii]]
+      locs <- which(df$Variable %in% paste(varname.ii, levels.ii, sep = ""))
       if (factor.compression == 1) {
 
         # Rows are Variable, Level 1 (ref), Level 2, ...
-        levels.ii <- levels(data[, varname.ii])
-        locs <- which(df$Variable %in% paste(varname.ii, levels.ii, sep = ""))
         df$Variable[locs] <- gsub(pattern = varname.ii, replacement = spaces,
                                   x = df$Variable[locs], fixed = TRUE)
         newrows <- matrix("", nrow = 2, ncol = ncol(df), dimnames = list(NULL, names(df)))
@@ -286,8 +221,6 @@ tabgee <- function(fit,
       } else if (factor.compression == 2) {
 
         # Rows are Variable (ref = Level 1), Level 2, ...
-        levels.ii <- levels(data[, varname.ii])
-        locs <- which(df$Variable %in% paste(varname.ii, levels.ii, sep = ""))
         df$Variable[locs] <- gsub(pattern = varname.ii, replacement = spaces, x = df$Variable[locs])
         newrow <- matrix("", nrow = 1, ncol = ncol(df), dimnames = list(NULL, names(df)))
         newrow[1, 1] <- paste(
@@ -299,8 +232,6 @@ tabgee <- function(fit,
       } else if (factor.compression == 3) {
 
         # Rows are Level 1 (ref), Level 2, ...
-        levels.ii <- levels(data[, varname.ii])
-        locs <- which(df$Variable %in% paste(varname.ii, levels.ii, sep = ""))
         df$Variable[locs] <- gsub(pattern = varname.ii, replacement = "", x = df$Variable[locs])
         newrow <- matrix("-", nrow = 1, ncol = ncol(df), dimnames = list(NULL, names(df)))
         newrow[1, 1] <- paste(levels.ii[1], " (ref)", sep = "")
@@ -309,8 +240,6 @@ tabgee <- function(fit,
       } else if (factor.compression == 4) {
 
         # Rows are Level 2 (ref = Level 1), ...
-        levels.ii <- levels(data[, varname.ii])
-        locs <- which(df$Variable %in% paste(varname.ii, levels.ii, sep = ""))
         df$Variable[locs] <- paste(
           gsub(pattern = varname.ii, replacement = "", x = df$Variable[locs]),
           " (ref = ", levels.ii[1], ")", sep = ""
@@ -322,9 +251,7 @@ tabgee <- function(fit,
         df$Variable[locs] <- gsub(pattern = varname.ii, replacement = "", x = df$Variable[locs])
 
       }
-
     }
-
   }
 
   # Clean up interaction terms
@@ -362,6 +289,7 @@ tabgee <- function(fit,
     varname.ii <- substring(split.ii[1], first = 6)
     poly.order <- as.numeric(split.ii[2])
     locs <- grep(polynomial.ii, df$Variable, fixed = TRUE)
+    varname.ii <- ifelse(varname.ii %in% names(var.labels), var.labels[[varname.ii]], varname.ii)
     if (poly.order == 1) {
       df$Variable[locs] <- varname.ii
     } else if (poly.order == 2) {
@@ -375,6 +303,7 @@ tabgee <- function(fit,
 
   # Add user-specified labels for numeric variables
   if (! is.null(var.labels)) {
+    dataClasses <- attr(fit$terms, "dataClasses")
     numerics <- names(dataClasses[dataClasses == "numeric"])
     if (length(numerics) > 0) {
       for (varname.ii in numerics) {

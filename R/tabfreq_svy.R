@@ -1,187 +1,387 @@
-tabfreq.svy <- function(x, y, svy, latex = FALSE, xlevels = NULL, yname = "Y variable",
-                        ylevels = NULL, test = "F", decimals = 1, p.decimals = c(2,3), p.cuts = 0.01,
-                        p.lowerbound = 0.001, p.leading0 = TRUE, p.avoid1 = FALSE, n.column = FALSE,
-                        n.headings = TRUE, compress = FALSE, compress.val = NULL, 
-                        bold.colnames = TRUE, bold.varnames = FALSE, bold.varlevels = FALSE, 
-                        variable.colname = "Variable") {
-  
-  # If any inputs are not correct class, return error
-  if (!is.logical(latex)) {
-    stop("For latex input, please enter TRUE or FALSE")
+#' Create Frequency Table (for Complex Survey Data)
+#'
+#' Creates an I-by-J frequency table comparing the distribution of \code{y}
+#' across levels of \code{x}.
+#'
+#' Basically \code{\link{tabmedians}} for complex survey data. Relies heavily on
+#' the \pkg{survey} package.
+#'
+#' @param formula Formula, e.g. \code{Race ~ Sex}.
+#' @param design Survey design object from \code{\link[survey]{svydesign}}.
+#' @param columns Character vector specifying what columns to include. Choices
+#' for each element are \code{"n"} for total unweighted sample size, \code{"N"}
+#' for total weighted sample size, \code{"overall"} for overall distribution of
+#' \code{y}, \code{"xgroups"} for distributions of \code{y} for each \code{x}
+#' group, and \code{"p"} for Chi-square p-value.
+#' @param cell Character string specifying what statistic to display in cells.
+#' Choices are \code{"n"}, \code{"N"}, and \code{"col.percent"}.
+#' @param parenth Character string specifying what statistic to display in
+#' parentheses. Choices are \code{"none"}, \code{"n"}, \code{"N"},
+#' \code{"col.percent"}, \code{"se"}, and \code{"ci"}.
+#' @param sep.char Character string with separator to place between lower and
+#' upper bound of confidence intervals. Typically \code{"-"} or \code{", "}.
+#' @param xlevels Character vector with labels for the levels of \code{x}, used
+#' in column headings.
+#' @param yname Character string with a label for the \code{y} variable.
+#' @param ylevels Character vector with labels for the levels of \code{y}. Note
+#' that levels of \code{y} are listed in the order that they appear when you run
+#' \code{table(y, x)}.
+#' @param compress.binary Logical value for whether to compress binary \code{y}
+#' variable to a single row, excluding the first level rather than showing both.
+#' @param yname.row Logical value for whether to include a row displaying the
+#' name of the \code{y} variable.
+#' @param indent.spaces Integer value specifying how many spaces to indent
+#' factor levels. Only used if \code{yname.row = TRUE}.
+#' @param text.label Character string with text to put after the \code{y}
+#' variable name, identifying what cell values and parentheses represent.
+#' @param latex Logical value for whether to format table so it is
+#' ready for printing in LaTeX via \code{\link[xtable]{xtable}} or
+#' \code{\link[knitr]{kable}}.
+#' @param decimals Numeric value specifying number of decimal places for numbers
+#' other than p-values.
+#' @param svychisq.list List of arguments to pass to
+#' \code{\link[survey]{svychisq}}.
+#' @param formatp.list List of arguments to pass to \code{\link[tab]{formatp}}.
+#' @param n.headings Logical value for whether to display unweighted sample
+#' sizes in parentheses in column headings.
+#' @param N.headings Logical value for whether to display weighted sample sizes
+#' in parentheses in column headings.
+#' @param print.html Logical value for whether to write a .html file with the
+#' table to the current working directory.
+#' @param html.filename Character string specifying the name of the .html file
+#' that gets written if \code{print.html = TRUE}.
+#'
+#'
+#' @examples
+#' # Create survey design object
+#' library("survey")
+#' design <- svydesign(
+#'   data = tabsvydata,
+#'   ids = ~sdmvpsu,
+#'   strata = ~sdmvstra,
+#'   weights = ~wtmec2yr,
+#'   nest = TRUE
+#' )
+#'
+#' # Compare race distribution by sex
+#' tabfreq.svy(Race ~ Sex, design = design) %>% kable()
+#'
+#'
+#' @export
+tabfreq.svy <- function(formula,
+                        design,
+                        columns = c("xgroups", "p"),
+                        cell = "col.percent",
+                        parenth = "se",
+                        sep.char = ", ",
+                        xlevels = NULL,
+                        yname = NULL,
+                        ylevels = NULL,
+                        compress.binary = FALSE,
+                        yname.row = TRUE,
+                        indent.spaces = 3,
+                        text.label = NULL,
+                        latex = TRUE,
+                        decimals = 1,
+                        svychisq.list = NULL,
+                        formatp.list = NULL,
+                        n.headings = FALSE,
+                        N.headings = FALSE,
+                        print.html = FALSE,
+                        html.filename = "table1.html") {
+
+  # Error checking
+  if (! is.null(formula) && class(formula) != "formula") {
+    stop("The input 'formula' must be a formula.")
   }
-  if (!is.null(xlevels) && !is.character(xlevels)) {
-    stop("For xlevels input, please enter vector of character strings")
+  if (! "survey.design" %in% class(design)) {
+    stop("The input 'design' must be a survey design object.")
   }
-  if (!is.character(yname)) {
-    stop("For yname input, please enter character string")
+  if (! all(columns %in% c("n", "N", "overall", "xgroups", "p"))) {
+    stop("Each element of 'columns' must be one of the following: 'n', 'N', 'overall', 'xgroups', 'p'.")
   }
-  if (!is.null(ylevels) && !is.character(ylevels)) {
-    stop("For ylevels input, please enter vector of character strings")
+  if (! cell %in% c("n", "N", "col.percent")) {
+    stop("The input 'cell' must be one of the following: 'n', 'N', 'col.percent'.")
   }
-  if (! test %in% c("F", "Chisq", "Wald", "adjWald", "lincom", "saddlepoint")) {
-    stop("For test input, please enter a possible value for the 'statistic' input of the 
-         svychisq function in the survey package: 'F', 'Chisq', 'Wald', 'adjWald', 'lincom', 
-         or 'saddlepoint'. See svychisq documentation for details.")
+  if (! parenth %in% c("none", "n", "N", "col.percent", "se", "ci")) {
+    stop("The input 'parenth' must be one of the following: 'none', 'n', 'N', 'col.pecent', 'se', 'ci'.")
   }
-  if (!is.numeric(decimals)) {
-    stop("For decimals input, please enter numeric value")
+  if (! is.character(sep.char)) {
+    stop("The input 'sep.char' must be a character string.")
   }
-  if (!is.numeric(p.decimals)) {
-    stop("For p.decimals input, please enter numeric value or vector")
+  if (! is.null(xlevels) && ! is.character(xlevels)) {
+    stop("The input 'xlevels' must be a character vector.")
   }
-  if (!is.numeric(p.cuts)) {  
-    stop("For p.cuts input, please enter numeric value or vector")
+  if (! is.null(yname) && ! is.character(yname)) {
+    stop("The input 'yname' must be a character string.")
   }
-  if (!is.numeric(p.lowerbound)) {
-    stop("For p.lowerbound input, please enter numeric value")
+  if (! is.null(ylevels) && ! is.character(ylevels)) {
+    stop("The input 'ylevels' must be a character vector.")
   }
-  if (!is.logical(p.leading0)) {
-    stop("For p.leading0 input, please enter TRUE or FALSE")
+  if (! is.logical(compress.binary)) {
+    stop("The input 'compress.binary' must be a logical.")
   }
-  if (!is.logical(p.avoid1)) {
-    stop("For p.avoid1 input, please enter TRUE or FALSE")
+  if (! is.logical(yname.row)) {
+    stop("The input 'yname.row' must be a logical.")
   }
-  if (!is.logical(n.column)) {
-    stop("For n.column input, please enter TRUE or FALSE")
+  if (! is.null(indent.spaces) && ! (is.numeric(indent.spaces) && indent.spaces >= 0 && indent.spaces == as.integer(indent.spaces))) {
+    stop("The input 'indent.spaces' must be a non-negative integer.")
   }
-  if (!is.logical(n.headings)) {
-    stop("For n.headings input, please enter TRUE or FALSE")
+  if (! is.null(text.label) && ! is.character(text.label)) {
+    stop("The input 'text.label' must be a character string.")
   }
-  if (!is.logical(compress)) {
-    stop("For compress input, please enter TRUE or FALSE")
+  if (! is.logical(latex)) {
+    stop("The input 'latex' must be a logical.")
   }
-  if (!is.logical(bold.colnames)) {
-    stop("For bold.colnames input, please enter TRUE or FALSE")
+  if (! (is.numeric(decimals) && decimals >= 0 &&
+         decimals == as.integer(decimals))) {
+    stop("The input 'decimals' must be a non-negative integer.")
   }
-  if (!is.logical(bold.varnames)) {
-    stop("For bold.varnames input, please enter TRUE or FALSE")
+  if (! is.null(svychisq.list) &&
+      ! (is.list(svychisq.list) && all(names(svychisq.list) %in%
+                                       names(as.list(args(svychisq)))))) {
+    stop("The input 'svychisq.list' must be a named list of arguments to pass to 'svychisq'.")
   }
-  if (!is.logical(bold.varlevels)) {
-    stop("For bold.varlevels input, please enter TRUE or FALSE")
+  if (! is.null(formatp.list) &&
+      ! (is.list(formatp.list) && all(names(formatp.list) %in%
+                                      names(as.list(args(formatp)))))) {
+    stop("The input 'formatp.list' must be a named list of arguments to pass to 'formatp'.")
   }
-  if (!is.character(variable.colname)) {
-    stop("For variable.colname input, please enter a character string")
+  if (! is.logical(n.headings)) {
+    stop("The input 'n.headings' must be a logical.")
   }
-  
+  if (! is.logical(N.headings)) {
+    stop("The input 'n.headings' must be a logical.")
+  }
+  if (! is.logical(print.html)) {
+    stop("The input 'print.html' must be a logical.")
+  }
+  if (! is.character("html.filename")) {
+    stop("The input 'html.filename' must be a character string.")
+  }
+
+  # Get variable names etc.
+  varnames <- all.vars(formula)
+  xvarname <- varnames[2]
+  yvarname <- varnames[1]
+  if (is.null(yname)) yname <- yvarname
+
+  # Drop missing values
+  design <- subset(design, complete.cases(design$variables[, c(xvarname, yvarname)]))
+  # design <- eval(parse(text = paste("subset(design, ! is.na(", xvarname, ") & ! is.na(", yvarname, "))", sep = "")))
+  # design <- eval(str2expression(paste("subset(design, ! is.na(", xvarname, ") & ! is.na(", yvarname, "))", sep = "")))
+
+  # Extract x and y values
+  x <- design$variables[, xvarname]
+  y <- design$variables[, yvarname]
+
+  # Calculate various statistics
+  counts <- table(y, x)
+  rowsums.counts <- rowSums(counts)
+  colsums.counts <- colSums(counts)
+  n <- sum(counts)
+
+  svycounts <- svytable(as.formula(paste("~", yvarname, "+", xvarname, sep = "")),
+                        design = design)
+  rowsums.svycounts <- rowSums(svycounts)
+  colsums.svycounts <- colSums(svycounts)
+  N <- sum(svycounts)
+
+  xvals <- colnames(counts)
+  yvals <- rownames(counts)
+
+  # If xlevels or ylevels unspecified, set to actual values
+  if (is.null(xlevels)) xlevels <- xvals
+  if (is.null(ylevels)) ylevels <- yvals
+
   # Convert decimals to variable for sprintf
   spf <- paste("%0.", decimals, "f", sep = "")
-  
-  # Save x and y as character strings
-  xstring <- x
-  ystring <- y
-  
-  # Extract vectors x and y
-  x <- svy$variables[, xstring]
-  y <- svy$variables[, ystring]
-  
-  # Update survey object to include y and x explicitly
-  svy2 <- update(svy, y = y, x = x)
-  
-  # Drop missing values if present
-  locs <- which(!is.na(x) & !is.na(y))
-  if (length(locs) < nrow(svy2)) {
-    svy2 <- subset(svy2, !is.na(x) & !is.na(y))
-    x <- svy2$variables[, xstring]
-    y <- svy2$variables[, ystring]
-  }
-  
-  # Basic table to get levels of x and y
-  counts <- table(y, x)
-  
-  # If ylevels unspecified, set to actual values
-  if (is.null(ylevels)) {
-    ylevels <- rownames(counts)
-  }
-  
+
   # Initialize table
-  tbl <- matrix("", nrow = nrow(counts)+1, ncol = ncol(counts) + 4) 
-  
-  # Add variable name and levels of Y to first row
-  tbl[, 1] <- c(paste(yname, ", n (%)", sep = ""), paste("  ", ylevels, sep = ""))
-  
-  # Add N column
-  tbl[1, 2] = sprintf("%.0f", sum(counts))
-  
-  # n (%) for each cell
-  for (ii in 1:nrow(counts)) {
-    yval <- rownames(counts)[ii]
-    totmean <- svymean(y == yval, design = svy2)
-    tbl[ii+1, 3] <- paste(sprintf("%.0f", rowSums(counts)[ii]), " (", sprintf(spf, totmean*100), ")", sep = "")
-    yval <- rownames(counts)[ii]
-    levmeans <- svyby(~y == yval, by = ~x, FUN = svymean, design = svy2)
-    tbl[ii+1, 4:(ncol(tbl)-1)] <- paste(sprintf("%.0f", counts[ii, ]), " (", sprintf(spf, levmeans$"y == yvalTRUE"*100), ")", sep = "")
-  }
-  
-  # Statistical test
-  if (nrow(counts) == 1) {
-    pval <- "-"
-  } else {
-    pval <- svychisq(~y + x, design = svy2, statistic = test)$p.value
-  }
-  tbl[1, ncol(tbl)] <- formatp(p = pval, cuts = p.cuts, decimals = p.decimals, lowerbound = p.lowerbound, leading0 = p.leading0, avoid1 = p.avoid1)
-  
-  #   # If y binary and compress is TRUE, compress table to a single row
-  #   if (nrow(counts) <= 2 & compress == TRUE) {
-  #     tbl <- matrix(c(tbl[1, 1:2], tbl[nrow(tbl), 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
-  #   }
-  
-  # If xlevels unspecified, set to actual values
-  if (is.null(xlevels)) {
-    xlevels <- colnames(counts)
-  }
-  
-  # If y binary and compress is TRUE, compress table to a single row
-  if (nrow(counts) <= 2 & compress == TRUE) {
-    if (is.null(compress.val)) {
-      tbl <- matrix(c(tbl[1, 1:2], tbl[nrow(tbl), 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
-    } else {
-      whichrow <- which(rownames(counts) == as.character(compress.val)) + 1
-      tbl <- matrix(c(tbl[1, 1:2], tbl[whichrow, 3:(ncol(tbl)-1)], tbl[1, ncol(tbl)]), nrow = 1)
-    }
-  }
-  
-  # Add column names, with sample sizes for each group if requested
-  if (n.headings == FALSE) {
-    colnames(tbl) <- c(variable.colname, "N", "Overall", xlevels, "P")
-  } else {
-    colnames(tbl) <- c(variable.colname, "N", paste(c("Overall", xlevels), " (n = ", c(sum(counts), apply(counts, 2, sum)), ")", sep = ""), "P")
-  }
-  
-  # Drop N column if requested
-  if (n.column == FALSE) {
-    tbl <- tbl[, -which(colnames(tbl) == "N"), drop = FALSE]
-  }
-  
-  # If latex is TRUE, do some re-formatting
-  if (latex == TRUE) {
-    plocs <- which(substr(tbl[, "P"], 1, 1) == "<")
-    if (length(plocs) > 0) {
-      tbl[plocs, "P"] <- paste("$<$", substring(tbl[plocs, "P"], 2), sep = "")
-    }
-    spacelocs <- which(substr(tbl[, variable.colname], 1, 2) == "  ")
-    if (length(spacelocs) > 0) {
-      tbl[spacelocs, variable.colname] <- paste("\\hskip .3cm ", substring(tbl[spacelocs, variable.colname], 3), sep = "")
-    }
-    chars <- strsplit(tbl[, variable.colname], "")
-    for (ii in 1:length(chars)) {
-      percentlocs <- which(chars[[ii]] == "%")
-      if (length(percentlocs) > 0) {
-        chars[[ii]][percentlocs] <- "\\%"
+  df <- data.frame(Variable = ylevels, stringsAsFactors = FALSE)
+
+  # Loop through and add columns requested
+  for (column in columns) {
+
+    if (column == "n") {
+
+      df$N <- ""
+      df$N[1] <- n
+
+    } else if (column == "N") {
+
+      df$N <- ""
+      df$N[1] <- N
+
+    } else if (column == "overall") {
+
+      svymean.overall <- svymean(as.formula(paste("~", yvarname, sep = "")), design = design)
+      percents <- as.data.frame(svymean.overall)$mean * 100
+      ses <- as.data.frame(svymean.overall)$SE * 100
+
+      if (cell == "n") {
+        part1 <- rowsums.counts
+      } else if (cell == "N") {
+        part1 <- rowsums.svycounts
+      } else if (cell == "col.percent") {
+        part1 <- percents
       }
+      if (parenth == "none") {
+        part2 <- NULL
+      } else if (parenth == "n") {
+        part2 <- rowsums.counts
+      } else if (parenth == "N") {
+        part2 <- rowsums.svycounts
+      } else if (parenth == "col.percent") {
+        part2 <- percents
+      } else if (parenth == "se") {
+        part2 <- ses
+      } else if (parenth == "ci") {
+        zcrit <- qnorm(p = 0.975)
+        lower <- percents - zcrit * ses
+        upper <- percents + zcrit * ses
+        part2 <- paste(" (", sprintf(spf, lower), sep.char,
+                       sprintf(spf, upper), ")", sep = "")
+      }
+
+      df$Overall <- paste(part1, part2, sep = "")
+
+    } else if (column == "xgroups") {
+
+      svymeans <- lapply(X = xvals, FUN = function(x) {
+        as.data.frame(svymean(as.formula(paste("~", yvarname, sep = "")),
+                              design = subset(design, design$variables[, xvarname] == x)))
+      })
+      # svymeans <- lapply(X = xvals, FUN = function(x) {
+      #   as.data.frame(svymean(as.formula(paste("~", yvarname, sep = "")),
+      #                         design = eval(parse(text = paste("subset(design, ", xvarname, " == '", x, "')", sep = "")))))
+      # })
+      # svymeans <- lapply(X = xvals, FUN = function(x) {
+      #   as.data.frame(svymean(as.formula(paste("~", yvarname, sep = "")),
+      #           design = eval(str2expression(paste("subset(design, ", xvarname, " == '", x, "')", sep = "")))))
+      # })
+      col.percents <- do.call(cbind, lapply(svymeans, function(x) x[[1]])) * 100
+      ses <- do.call(cbind, lapply(svymeans, function(x) x[[2]])) * 100
+
+      if (cell == "n") {
+        part1 <- sprintf("%.0f", counts)
+      } else if (cell == "N") {
+        part1 <- sprintf("%.0f", svycounts)
+      } else if (cell == "col.percent") {
+        part1 <- sprintf(spf, col.percents)
+      }
+      if (parenth == "none") {
+        part2 <- NULL
+      } else if (parenth == "n") {
+        part2 <- paste(" (", sprintf("%.0f", counts), ")", sep = "")
+      } else if (parenth == "N") {
+        part2 <- paste(" (", sprintf("%.0f", svycounts), ")", sep = "")
+      } else if (parenth == "col.percent") {
+        part2 <- paste(" (", sprintf(spf, col.percents), ")", sep = "")
+      } else if (parenth == "se") {
+        part2 <- paste(" (", sprintf(spf, ses), ")", sep = "")
+      } else if (parenth == "ci") {
+        zcrit <- qnorm(0.975)
+        lower <- col.percents - zcrit * ses
+        upper <- col.percents + zcrit * ses
+        part2 <- paste(" (", sprintf(spf, lower), sep.char,
+                       sprintf(spf, upper), ")", sep = "")
+      }
+
+      newcols <- matrix(paste(part1, part2, sep = ""), ncol = length(xlevels),
+                        dimnames = list(NULL, xlevels))
+      df <- cbind(df, newcols, stringsAsFactors = FALSE)
+
+    } else if (column == "p") {
+
+      p <- do.call(
+        svychisq,
+        c(list(formula = as.formula(paste("~", xvarname, "+", yvarname, sep = "")),
+               design = design),
+          svychisq.list)
+      )$p.value
+      df$P <- ""
+      df$P[1] <- do.call(formatp, c(list(p = p), formatp.list))
     }
-    tbl[, variable.colname] <- sapply(chars, function(x) paste(x, sep = "", collapse = ""))
-    if (bold.colnames == TRUE) {
-      colnames(tbl) <- paste("$\\textbf{", colnames(tbl), "}$", sep = "")
+
+  }
+
+  # Remove first row if requested
+  if (compress.binary & length(ylevels) == 2) {
+    row1 <- df[1, , drop = FALSE]
+    df <- df[-1, , drop = FALSE]
+    summary.cols <- which(names(df) %in% c("n", "N", "P"))
+    df[1, summary.cols] <- row1[1, summary.cols]
+  }
+
+  # Add yname row and indent ylevels if requested
+  if (yname.row) {
+    spaces <- paste(rep(" ", indent.spaces), collapse = "")
+    row1 <- df[1, , drop = FALSE]
+    df[, 1] <- paste(spaces, df[, 1], sep = "")
+    df <- rbind(c(yname, rep("", ncol(df) - 1)), df)
+    summary.cols <- which(colnames(df) %in% c("n", "N", "P"))
+    df[1, summary.cols] <- row1[1, summary.cols]
+    df[2, summary.cols] <- ""
+  }
+
+  # Add text.label to first entry of first column, whether it happens to be
+  # yname or ylevels[1]
+  if (is.null(text.label)) {
+    if (cell == "n") {
+      part1 <- "n"
+    } else if (cell == "N") {
+      part1 <- "N"
+    } else if (cell == "col.percent") {
+      part1 <- "%"
     }
-    if (bold.varnames == TRUE) {
-      tbl[1, 1] <- paste("$\\textbf{", tbl[1, 1], "}$")
-    }
-    if (bold.varlevels == TRUE) {
-      tbl[2:nrow(tbl), 1] <- paste("$\\textbf{", tbl[2:nrow(tbl), 1], "}$", sep = "")
+    if (parenth == "none") {
+      text.label <- paste(", ", part1, sep = "")
+    } else if (parenth == "n") {
+      text.label <- paste(", ", part1, " (n)", sep = "")
+    } else if (parenth == "N") {
+      text.label <- paste(", ", part1, " (N)", sep = "")
+    } else if (parenth == "col.percent") {
+      text.label <- paste(", ", part1, " (%)", sep = "")
+    } else if (parenth == "se") {
+      text.label <- paste(", ", part1, " (SE)", sep = "")
+    } else if (parenth == "ci") {
+      text.label <- paste(", ", part1, " (95% CI)", sep = "")
     }
   }
-  
+  df[1, 1] <- paste(df[1, 1], text.label, sep = "")
+
+  # Add sample sizes to column headings if requested
+  if (n.headings) {
+    names(df)[names(df) == "Overall"] <- paste("Overall (n = ", n, ")", sep = "")
+    names(df)[names(df) %in% xlevels] <- paste(xlevels, " (n = ", colsums.counts, ")", sep = "")
+  } else if (N.headings) {
+    names(df)[names(df) == "Overall"] <- paste("Overall (N = ", N, ")", sep = "")
+    names(df)[names(df) %in% xlevels] <- paste(xlevels, " (N = ", colsums.svycounts, ")", sep = "")
+  }
+
+  # Print html version of table if requested
+  if (print.html) {
+
+    df.xtable <- xtable(
+      df,
+      align = paste("ll", paste(rep("r", ncol(df) - 1), collapse = ""), sep = "", collapse = "")
+    )
+    ampersands <- paste(rep("&nbsp ", indent.spaces), collapse = "")
+    print(df.xtable, include.rownames = FALSE, type = "html",
+          file = html.filename, sanitize.text.function = function(x) {
+            ifelse(substr(x, 1, 1) == " ", paste(ampersands, x), x)
+          })
+
+  }
+
+  # Reformat for latex if requested
+  if (latex && yname.row) {
+    slashes <- paste(rep("\\ ", indent.spaces), collapse = "")
+    df$Variable <- gsub(pattern = spaces, replacement = slashes, x = df$Variable, fixed = TRUE)
+  }
+
   # Return table
-  return(tbl)
-  
+  return(df)
+
 }
