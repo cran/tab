@@ -15,19 +15,20 @@
 #' other than p-values.
 #' @param formatp.list List of arguments to pass to \code{\link[tab]{formatp}}.
 #' @param labels Character vector.
+#' @param print.html Logical value for whether to write a .html file with the
+#' table to the current working directory.
+#' @param html.filename Character string specifying the name of the .html file
+#' that gets written if \code{print.html = TRUE}.
 #'
 #'
-#' @return \code{\link[knitr]{kable}}.
+#' @return Data frame.
 #'
 #'
 #' @examples
 #' # Create summary table for mtcars regression
 #' fit <- lm(mpg ~ wt + hp + drat, data = mtcars)
-#' tabreg(
-#'   betas = fit$coef,
-#'   varcov = vcov(fit),
-#'   labels = c("Intercept", "Weight", "HP", "Rear axle ratio")
-#' )
+#' tabreg(betas = fit$coef, varcov = vcov(fit),
+#'        labels = c("Intercept", "Weight", "HP", "Rear axle ratio")) %>% kable()
 #'
 #'
 #' @export
@@ -38,7 +39,9 @@ tabreg <- function(betas,
                    sep.char = ", ",
                    decimals = NULL,
                    formatp.list = NULL,
-                   labels = NULL) {
+                   labels = NULL,
+                   print.html = FALSE,
+                   html.filename = "table1.html") {
 
   # Error checking
   if (! is.numeric(betas)) {
@@ -68,6 +71,12 @@ tabreg <- function(betas,
   }
   if (! is.null(labels) && ! is.character(labels)) {
     stop("The input 'labels' must be a character vector.")
+  }
+  if (! is.logical(print.html)) {
+    stop("The input 'print.html' must be a logical.")
+  }
+  if (! is.character("html.filename")) {
+    stop("The input 'html.filename' must be a character string.")
   }
 
   # If decimals is unspecified, set to appropriate value
@@ -147,38 +156,38 @@ tabreg <- function(betas,
     } else if (column == "or") {
 
       df$`OR` <- sprintf(spf, exp(betas))
-      if (labels[1] %in% c("(Intercept)", "b0")) df$`OR`[1] <- "&ndash;"
+      if (labels[1] %in% c("(Intercept)", "b0")) df$`OR`[1] <- "-"
 
     } else if (column == "orci") {
 
       df$`95% CI` <- paste("(", sprintf(spf, exp(lower)), sep.char,
                            sprintf(spf, exp(upper)), ")", sep = "")
-      if (labels[1] %in% c("(Intercept)", "b0")) df$`95% CI`[1] <- "&ndash;"
+      if (labels[1] %in% c("(Intercept)", "b0")) df$`95% CI`[1] <- "-"
 
     } else if (column == "or.ci") {
 
       df$`OR (95% CI)` <- paste(sprintf(spf, exp(betas)), " (",
                                 sprintf(spf, exp(lower)), sep.char,
                                 sprintf(spf, exp(upper)), ")", sep = "")
-      if (labels[1] %in% c("(Intercept)", "b0")) df$`OR (95% CI)`[1] <- "&ndash;"
+      if (labels[1] %in% c("(Intercept)", "b0")) df$`OR (95% CI)`[1] <- "-"
 
     } else if (column == "hr") {
 
       df$`HR` <- sprintf(spf, exp(betas))
-      if (labels[1] %in% c("(Intercept)", "b0")) df$`HR`[1] <- "&ndash;"
+      if (labels[1] %in% c("(Intercept)", "b0")) df$`HR`[1] <- "-"
 
     } else if (column == "hrci") {
 
       df$`95% CI` <- paste("(", sprintf(spf, exp(lower)), sep.char,
                            sprintf(spf, exp(upper)), ")", sep = "")
-      if (labels[1] %in% c("(Intercept)", "b0")) df$`95% CI`[1] <- "&ndash;"
+      if (labels[1] %in% c("(Intercept)", "b0")) df$`95% CI`[1] <- "-"
 
     } else if (column == "hr.ci") {
 
       df$`HR (95% CI)` <- paste(sprintf(spf, exp(betas)), " (",
                                 sprintf(spf, exp(lower)), sep.char,
                                 sprintf(spf, exp(upper)), ")", sep = "")
-      if (labels[1] %in% c("(Intercept)", "b0")) df$`HR (95% CI)`[1] <- "&ndash;"
+      if (labels[1] %in% c("(Intercept)", "b0")) df$`HR (95% CI)`[1] <- "-"
 
     } else if (column == "p") {
 
@@ -192,8 +201,19 @@ tabreg <- function(betas,
   # Remove parentheses around intercept
   if (df$Variable[1] == "(Intercept)") df$Variable[1] <- "Intercept"
 
+  # Print html version of table if requested
+  if (print.html) {
+
+    df.xtable <- xtable(
+      df,
+      align = paste("ll", paste(rep("r", ncol(df) - 1), collapse = ""), sep = "", collapse = "")
+    )
+    print(df.xtable, include.rownames = FALSE, type = "html", file = html.filename)
+
+  }
+
   # Remove row names and return table
   rownames(df) <- NULL
-  return(df %>% kable(escape = FALSE) %>% kable_styling(full_width = FALSE))
+  return(df)
 
 }

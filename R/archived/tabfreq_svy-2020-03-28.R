@@ -30,8 +30,13 @@
 #' variable to a single row, excluding the first level rather than showing both.
 #' @param yname.row Logical value for whether to include a row displaying the
 #' name of the \code{y} variable.
+#' @param indent.spaces Integer value specifying how many spaces to indent
+#' factor levels. Only used if \code{yname.row = TRUE}.
 #' @param text.label Character string with text to put after the \code{y}
 #' variable name, identifying what cell values and parentheses represent.
+#' @param latex Logical value for whether to format table so it is
+#' ready for printing in LaTeX via \code{\link[xtable]{xtable}} or
+#' \code{\link[knitr]{kable}}.
 #' @param decimals Numeric value specifying number of decimal places for numbers
 #' other than p-values.
 #' @param svychisq.list List of arguments to pass to
@@ -41,12 +46,10 @@
 #' sizes in parentheses in column headings.
 #' @param N.headings Logical value for whether to display weighted sample sizes
 #' in parentheses in column headings.
-#' @param kable Logical value for whether to return a
-#' \code{\link[knitr]{kable}}.
-#'
-#'
-#'
-#' @return \code{\link[knitr]{kable}} or character matrix.
+#' @param print.html Logical value for whether to write a .html file with the
+#' table to the current working directory.
+#' @param html.filename Character string specifying the name of the .html file
+#' that gets written if \code{print.html = TRUE}.
 #'
 #'
 #' @examples
@@ -61,7 +64,7 @@
 #' )
 #'
 #' # Compare race distribution by sex
-#' tabfreq.svy(Race ~ Sex, design)
+#' tabfreq.svy(Race ~ Sex, design = design) %>% kable()
 #'
 #'
 #' @export
@@ -76,13 +79,16 @@ tabfreq.svy <- function(formula,
                         ylevels = NULL,
                         compress.binary = FALSE,
                         yname.row = TRUE,
+                        indent.spaces = 3,
                         text.label = NULL,
+                        latex = TRUE,
                         decimals = 1,
                         svychisq.list = NULL,
                         formatp.list = NULL,
                         n.headings = FALSE,
                         N.headings = FALSE,
-                        kable = TRUE) {
+                        print.html = FALSE,
+                        html.filename = "table1.html") {
 
   # Error checking
   if (! is.null(formula) && class(formula) != "formula") {
@@ -118,8 +124,14 @@ tabfreq.svy <- function(formula,
   if (! is.logical(yname.row)) {
     stop("The input 'yname.row' must be a logical.")
   }
+  if (! is.null(indent.spaces) && ! (is.numeric(indent.spaces) && indent.spaces >= 0 && indent.spaces == as.integer(indent.spaces))) {
+    stop("The input 'indent.spaces' must be a non-negative integer.")
+  }
   if (! is.null(text.label) && ! is.character(text.label)) {
     stop("The input 'text.label' must be a character string.")
+  }
+  if (! is.logical(latex)) {
+    stop("The input 'latex' must be a logical.")
   }
   if (! (is.numeric(decimals) && decimals >= 0 &&
          decimals == as.integer(decimals))) {
@@ -141,8 +153,11 @@ tabfreq.svy <- function(formula,
   if (! is.logical(N.headings)) {
     stop("The input 'n.headings' must be a logical.")
   }
-  if (! is.logical(kable)) {
-    stop("The input 'kable' must be a logical.")
+  if (! is.logical(print.html)) {
+    stop("The input 'print.html' must be a logical.")
+  }
+  if (! is.character("html.filename")) {
+    stop("The input 'html.filename' must be a character string.")
   }
 
   # Get variable names etc.
@@ -301,7 +316,7 @@ tabfreq.svy <- function(formula,
 
   # Add yname row and indent ylevels if requested
   if (yname.row) {
-    spaces <- "&nbsp; &nbsp; &nbsp;"
+    spaces <- paste(rep(" ", indent.spaces), collapse = "")
     row1 <- df[1, , drop = FALSE]
     df[, 1] <- paste(spaces, df[, 1], sep = "")
     df <- rbind(c(yname, rep("", ncol(df) - 1)), df)
@@ -345,8 +360,28 @@ tabfreq.svy <- function(formula,
     names(df)[names(df) %in% xlevels] <- paste(xlevels, " (N = ", colsums.svycounts, ")", sep = "")
   }
 
+  # Print html version of table if requested
+  if (print.html) {
+
+    df.xtable <- xtable(
+      df,
+      align = paste("ll", paste(rep("r", ncol(df) - 1), collapse = ""), sep = "", collapse = "")
+    )
+    ampersands <- paste(rep("&nbsp ", indent.spaces), collapse = "")
+    print(df.xtable, include.rownames = FALSE, type = "html",
+          file = html.filename, sanitize.text.function = function(x) {
+            ifelse(substr(x, 1, 1) == " ", paste(ampersands, x), x)
+          })
+
+  }
+
+  # Reformat for latex if requested
+  if (latex && yname.row) {
+    slashes <- paste(rep("\\ ", indent.spaces), collapse = "")
+    df$Variable <- gsub(pattern = spaces, replacement = slashes, x = df$Variable, fixed = TRUE)
+  }
+
   # Return table
-  if (! kable) return(df)
-  return(df %>% kable(escape = FALSE) %>% kable_styling(full_width = FALSE))
+  return(df)
 
 }

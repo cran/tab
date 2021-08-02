@@ -33,11 +33,18 @@
 #' parentheses in column headings.
 #' @param N.headings Logical value for whether to display weighted sample sizes
 #' in parentheses in column headings.
-#' @param kable Logical value for whether to return a
-#' \code{\link[knitr]{kable}}.
+#' @param print.html Logical value for whether to write a .html file with the
+#' table to the current working directory.
+#' @param html.filename Character string specifying the name of the .html file
+#' that gets written if \code{print.html = TRUE}.
 #'
 #'
-#' @return \code{\link[knitr]{kable}} or character matrix.
+#' @return Data frame which you can print in R (e.g. with \strong{xtable}'s
+#' \code{\link[xtable]{xtable}} or \strong{knitr}'s \code{\link[knitr]{kable}})
+#' or export to Word, Excel, or some other program. To export the table, set
+#' \code{print.html = TRUE}. This will result in a .html file being written to
+#' your current working directory, which you can open and copy/paste into your
+#' document.
 #'
 #'
 #' @examples
@@ -69,7 +76,8 @@ tabmedians.svy <- function(formula,
                            formatp.list = NULL,
                            n.headings = FALSE,
                            N.headings = FALSE,
-                           kable = TRUE) {
+                           print.html = FALSE,
+                           html.filename = "table1.html") {
 
   # Error checking
   if (class(formula) != "formula") {
@@ -109,8 +117,11 @@ tabmedians.svy <- function(formula,
   if (! is.logical(n.headings)) {
     stop("The input 'n.headings' must be a logical.")
   }
-  if (! is.logical(kable)) {
-    stop("The input 'kable' must be a logical.")
+  if (! is.logical(print.html)) {
+    stop("The input 'print.html' must be a logical.")
+  }
+  if (! is.character("html.filename")) {
+    stop("The input 'html.filename' must be a character string.")
   }
 
   # Get variable names etc.
@@ -131,7 +142,7 @@ tabmedians.svy <- function(formula,
   # Calculate various statistics
   svyby.svyquantile <- svyby(as.formula(paste("~", yvarname, sep = "")),
                              by = as.formula(paste("~", xvarname, sep = "")),
-                             design = design, FUN = oldsvyquantile, quantiles = 0.5,
+                             design = design, FUN = svyquantile, quantiles = 0.5,
                              keep.var = FALSE, ci = TRUE)
   medians <- unlist(svyby.svyquantile$statistic.quantiles)
   lower <- sapply(svyby.svyquantile$statistic.CIs, function(x) x[1])
@@ -201,7 +212,7 @@ tabmedians.svy <- function(formula,
 
     } else if (column == "overall") {
 
-      svyquantile.q2 <- oldsvyquantile(
+      svyquantile.q2 <- svyquantile(
         as.formula(paste("~", yvarname, sep = "")),
         design = design, quantiles = 0.5, keep.var = FALSE, ci = TRUE
       )
@@ -210,7 +221,7 @@ tabmedians.svy <- function(formula,
       if (parenth == "none") {
         df$Overall <- sprintf(spf, median.y)
       } else if (parenth == "iqr") {
-        svyquantile.q1q3 <- oldsvyquantile(
+        svyquantile.q1q3 <- svyquantile(
           as.formula(paste("~", yvarname, sep = "")),
           design = design, quantiles = c(0.25, 0.75), keep.var = FALSE, ci = FALSE
         )
@@ -218,7 +229,7 @@ tabmedians.svy <- function(formula,
                             sprintf(spf, diff(as.numeric(svyquantile.q1q3))),
                             ")", sep = "")
       } else if (parenth == "q1q3") {
-        svyquantile.q1q3 <- oldsvyquantile(
+        svyquantile.q1q3 <- svyquantile(
           as.formula(paste("~", yvarname, sep = "")),
           design = design, quantiles = c(0.25, 0.75), keep.var = FALSE, ci = FALSE
         )
@@ -246,7 +257,7 @@ tabmedians.svy <- function(formula,
         svyby.svyquantile.q1q3 <- svyby(
           as.formula(paste("~", yvarname, sep = "")),
           by = as.formula(paste("~", xvarname, sep = "")),
-          design = design, FUN = oldsvyquantile, quantiles = c(0.25, 0.75),
+          design = design, FUN = svyquantile, quantiles = c(0.25, 0.75),
           keep.var = FALSE
         )
         iqrs <- svyby.svyquantile.q1q3$statistic2 - svyby.svyquantile.q1q3$statistic1
@@ -256,7 +267,7 @@ tabmedians.svy <- function(formula,
         svyby.svyquantile.q1q3 <- svyby(
           as.formula(paste("~", yvarname, sep = "")),
           by = as.formula(paste("~", xvarname, sep = "")),
-          design = design, FUN = oldsvyquantile, quantiles = c(0.25, 0.75),
+          design = design, FUN = svyquantile, quantiles = c(0.25, 0.75),
           keep.var = FALSE
         )
         q1s <- svyby.svyquantile.q1q3$statistic1
@@ -307,8 +318,18 @@ tabmedians.svy <- function(formula,
     names(df)[names(df) %in% xlevels] <- paste(xlevels, " (N = ", Ns, ")", sep = "")
   }
 
+  # Print html version of table if requested
+  if (print.html) {
+
+    df.xtable <- xtable(
+      df,
+      align = paste("ll", paste(rep("r", ncol(df) - 1), collapse = ""), sep = "", collapse = "")
+    )
+    print(df.xtable, include.rownames = FALSE, type = "html", file = html.filename)
+
+  }
+
   # Return table
-  if (! kable) return(df)
-  return(df %>% kable(escape = FALSE) %>% kable_styling(full_width = FALSE))
+  return(df)
 
 }

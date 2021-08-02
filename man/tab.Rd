@@ -3,7 +3,6 @@
 \docType{package}
 \name{tab}
 \alias{tab}
-\alias{tab-package}
 \title{Create Summary Tables for Statistical Reports}
 \description{
 Contains functions for creating various types of summary tables, e.g.
@@ -16,8 +15,8 @@ handle data from simple random samples as well as complex surveys.
 \tabular{ll}{
 Package: \tab tab \cr
 Type: \tab Package \cr
-Version: \tab 4.1.1 \cr
-Date: \tab 2019-06-17 \cr
+Version: \tab 5.1.1 \cr
+Date: \tab 2021-08-01 \cr
 License: \tab GPL-3 \cr
 }
 

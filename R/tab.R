@@ -9,8 +9,8 @@
 #' \tabular{ll}{
 #' Package: \tab tab \cr
 #' Type: \tab Package \cr
-#' Version: \tab 4.1.1 \cr
-#' Date: \tab 2019-06-17 \cr
+#' Version: \tab 5.1.1 \cr
+#' Date: \tab 2021-08-01 \cr
 #' License: \tab GPL-3 \cr
 #' }
 #'
@@ -26,11 +26,11 @@
 #'
 #' @docType package
 #' @importFrom dplyr %>%
+#' @importFrom kableExtra kable_styling
 #' @importFrom knitr kable
 #' @import MASS
 #' @import stats
-#' @importFrom survey svyby svychisq svyglm svymean svyquantile svyranktest svytable svyttest svyvar
+#' @importFrom survey svyby svychisq svyglm svymean oldsvyquantile svyranktest svytable svyttest svyvar
 #' @importFrom utils capture.output
-#' @importFrom xtable xtable
 #' @name tab
 NULL
